@@ -1,0 +1,66 @@
+project:
+  name: DisasterSight
+  mode: local_demo
+  random_seed: 42
+
+paths:
+  data_root: data
+  raw_data_dir: data/raw
+  xbd_root: data/raw/xbd
+  interim_data_dir: data/interim
+  processed_data_dir: data/processed
+  cache_dir: data/cache
+  artifacts_dir: artifacts
+  checkpoints_dir: artifacts/checkpoints
+  predictions_dir: artifacts/predictions
+  figures_dir: artifacts/figures
+  manifests_dir: artifacts/manifests
+
+dataset:
+  name: xbd
+  use_small_subset: true
+  subset_strategy: event_aware
+  image_size: 224
+  crop_padding_pixels: 12
+  min_building_area_pixels: 32
+  train_split: 0.7
+  val_split: 0.15
+  test_split: 0.15
+  allowed_disasters:
+    - hurricane
+    - earthquake
+    - flood
+    - wildfire
+
+labels:
+  damage_classes:
+    - no_damage
+    - minor_damage
+    - major_damage
+    - destroyed
+  background_label: unclassified
+  review_required_label: review_required
+  unknown_label: unknown
+
+training:
+  batch_size: 16
+  num_workers: 2
+  learning_rate: 0.0003
+  max_epochs: 10
+  early_stopping_patience: 3
+
+inference:
+  cache_predictions: true
+  confidence_threshold: 0.6
+  review_threshold: 0.5
+
+dashboard:
+  default_scene_limit: 5
+  show_confidence: true
+  show_priority_score: true
+  show_review_flags: true
+
+priority_score:
+  destroyed_weight: 0.50
+  major_damage_weight: 0.30
+  damage_density_weight: 0.20
