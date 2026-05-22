@@ -6,17 +6,17 @@ from collections import Counter
 from pathlib import Path
 
 from src.common.paths import get_path_map, load_config
-from src.data.preview_xbd_scene import extract_building_annotations, load_json, resolve_scene_file
+from src.data.xbd import extract_building_annotations, load_json, resolve_scene_file
 
 
 SCENE_INDEX_NAME = "wildfire_scene_index.csv"
 SUMMARY_CSV_NAME = "wildfire_label_summary.csv"
 LABEL_COLUMNS = (
-    "no-damage",
-    "minor-damage",
-    "major-damage",
+    "no_damage",
+    "minor_damage",
+    "major_damage",
     "destroyed",
-    "un-classified",
+    "unclassified",
     "unknown",
 )
 
@@ -39,9 +39,9 @@ def summarise_scene(scene_row: dict[str, str]) -> dict[str, object]:
     label_counts = Counter(annotation.label for annotation in annotations)
     total_buildings = len(annotations)
     damaged_total = (
-        label_counts["minor-damage"] + label_counts["major-damage"] + label_counts["destroyed"]
+        label_counts["minor_damage"] + label_counts["major_damage"] + label_counts["destroyed"]
     )
-    significant_damage_total = label_counts["major-damage"] + label_counts["destroyed"]
+    significant_damage_total = label_counts["major_damage"] + label_counts["destroyed"]
     damaged_share = (damaged_total / total_buildings) if total_buildings else 0.0
     significant_damage_share = (
         (significant_damage_total / total_buildings) if total_buildings else 0.0
@@ -140,11 +140,11 @@ def print_top_candidates(summaries: list[dict[str, object]], limit: int = 20) ->
             f"{float(row['damaged_share']) * 100:8.1f}%".rjust(9),
             f"{float(row['significant_damage_share']) * 100:7.1f}%".rjust(8),
             str(row["label_diversity"]).rjust(9),
-            str(row["no-damage"]).rjust(4),
-            str(row["minor-damage"]).rjust(6),
-            str(row["major-damage"]).rjust(6),
+            str(row["no_damage"]).rjust(4),
+            str(row["minor_damage"]).rjust(6),
+            str(row["major_damage"]).rjust(6),
             str(row["destroyed"]).rjust(5),
-            str(row["un-classified"]).rjust(5),
+            str(row["unclassified"]).rjust(5),
             str(row["unknown"]).rjust(4),
         )
         print(" ".join(values))

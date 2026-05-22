@@ -24,6 +24,9 @@ Required fields:
 
 One building record represents a single xBD polygon and label.
 
+Damage labels should use canonical config names with underscores:
+`no_damage`, `minor_damage`, `major_damage`, and `destroyed`.
+
 Required fields:
 
 | Field | Type | Description |

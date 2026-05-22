@@ -84,9 +84,9 @@ pip install -r requirements.txt
 
 The next implementation milestone is:
 
-1. Add `data/README.md` plus empty data folders.
-2. Implement xBD metadata parsing and train/val/test manifests.
-3. Implement polygon-to-crop extraction.
+1. Finalize xBD scene/building manifests and inspect split quality.
+2. Implement polygon-to-crop extraction.
+3. Add crop QA previews and metadata validation.
 4. Add a baseline paired-image damage classifier.
 5. Add cached prediction loading for the Streamlit dashboard.
 
@@ -101,6 +101,24 @@ pip install -r requirements.txt
 ```
 
 After that, start the first implementation task: dataset folder setup and xBD parsing.
+
+## Scene Manifest
+
+To build a general xBD scene manifest with event-aware train/validation/test splits, run:
+
+```powershell
+python -m src.data.build_scene_manifest
+```
+
+The script writes `artifacts/manifests/scene_manifest.csv` and uses the split fractions and random seed from `config.yaml`.
+
+## Tests
+
+Run the current foundation tests with:
+
+```powershell
+python -m unittest discover -s tests
+```
 
 ## Wildfire Discovery
 

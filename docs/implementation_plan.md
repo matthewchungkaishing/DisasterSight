@@ -15,6 +15,21 @@ Deliverables:
 - Shared constants and path helpers
 - Interface and implementation planning docs
 
+## Phase 0.5: Foundation Hardening
+
+Status: in progress.
+
+Deliverables:
+- `data/README.md` with local data policy and expected layout
+- Shared xBD parser for scene pairing, annotation parsing, and label normalization
+- Reusable scene manifest helpers with event-aware splitting
+- Focused parser and manifest tests
+
+Success criteria:
+- Exploratory scripts use shared parsing code.
+- Labels use canonical config names such as `no_damage` and `major_damage`.
+- A general xBD scene manifest can be generated from config only.
+
 ## Phase 1: Data Layout and xBD Parsing
 
 Deliverables:

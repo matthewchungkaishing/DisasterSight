@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import csv
-import re
 import sys
-from collections import defaultdict
 from pathlib import Path
-from typing import Iterable
 
 from src.common.paths import get_path_map, load_config
+from src.data.xbd import (
+    POST_IMAGE_KEY,
+    POST_JSON_KEY,
+    PRE_IMAGE_KEY,
+    PRE_JSON_KEY,
+    is_complete_scene,
+    scan_xbd_files,
+)
 
 
 WILDFIRE_KEYWORDS = (
@@ -21,94 +26,6 @@ WILDFIRE_KEYWORDS = (
     "pinery",
     "portugal",
 )
-
-SUPPORTED_EXTENSIONS = {".json", ".png", ".jpg", ".jpeg", ".tif", ".tiff"}
-IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
-
-PRE_IMAGE_KEY = "pre_disaster_image"
-POST_IMAGE_KEY = "post_disaster_image"
-PRE_JSON_KEY = "pre_disaster_json"
-POST_JSON_KEY = "post_disaster_json"
-
-
-def is_keyword_match(path: Path, keywords: Iterable[str]) -> bool:
-    name = path.name.lower()
-    return any(keyword in name for keyword in keywords)
-
-
-def extract_scene_id(path: Path) -> str:
-    stem = path.stem
-    scene_id = re.sub(r"_(pre|post)_disaster$", "", stem, flags=re.IGNORECASE)
-    return scene_id
-
-
-def classify_file_role(path: Path) -> str | None:
-    name = path.name.lower()
-    suffix = path.suffix.lower()
-
-    if suffix not in SUPPORTED_EXTENSIONS:
-        return None
-
-    if "_pre_disaster" in name:
-        if suffix == ".json":
-            return PRE_JSON_KEY
-        if suffix in IMAGE_EXTENSIONS:
-            return PRE_IMAGE_KEY
-
-    if "_post_disaster" in name:
-        if suffix == ".json":
-            return POST_JSON_KEY
-        if suffix in IMAGE_EXTENSIONS:
-            return POST_IMAGE_KEY
-
-    return None
-
-
-def scan_wildfire_files(xbd_root: Path) -> dict[str, dict[str, object]]:
-    scenes: dict[str, dict[str, object]] = defaultdict(
-        lambda: {
-            "scene_id": "",
-            PRE_IMAGE_KEY: "",
-            POST_IMAGE_KEY: "",
-            PRE_JSON_KEY: "",
-            POST_JSON_KEY: "",
-            "matched_files": [],
-            "matched_keywords": set(),
-        }
-    )
-
-    for path in xbd_root.rglob("*"):
-        if not path.is_file():
-            continue
-
-        if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
-            continue
-
-        if not is_keyword_match(path, WILDFIRE_KEYWORDS):
-            continue
-
-        role = classify_file_role(path)
-        if role is None:
-            continue
-
-        scene_id = extract_scene_id(path)
-        record = scenes[scene_id]
-        record["scene_id"] = scene_id
-        record[role] = str(path)
-        record["matched_files"].append(str(path))
-        record["matched_keywords"].update(
-            keyword for keyword in WILDFIRE_KEYWORDS if keyword in path.name.lower()
-        )
-
-    return scenes
-
-
-def is_complete_scene(record: dict[str, object]) -> bool:
-    return all(
-        bool(record[key])
-        for key in (PRE_IMAGE_KEY, POST_IMAGE_KEY, PRE_JSON_KEY, POST_JSON_KEY)
-    )
-
 
 def write_scene_index_csv(output_path: Path, scenes: dict[str, dict[str, object]]) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -199,7 +116,7 @@ def main() -> int:
         print(f"Configured xBD root does not exist: {xbd_root}", file=sys.stderr)
         return 1
 
-    scenes = scan_wildfire_files(xbd_root)
+    scenes = scan_xbd_files(xbd_root, keywords=WILDFIRE_KEYWORDS)
     print_scene_groups(scenes)
     write_scene_index_csv(output_csv, scenes)
     print_top_complete_scenes(scenes, limit=10)
