@@ -17,9 +17,9 @@ _USING_FIXTURES_KEY = "_ds_using_fixtures"
 
 def _warn_fixtures(message: str) -> None:
     st.session_state[_USING_FIXTURES_KEY] = True
-    if not st.session_state.get("_ds_fixture_warned"):
+    if message not in st.session_state.get("_ds_fixture_messages", []):
+        st.session_state.setdefault("_ds_fixture_messages", []).append(message)
         st.warning(message)
-        st.session_state["_ds_fixture_warned"] = True
 
 
 def _load_json(path: Path) -> Any:
@@ -137,6 +137,17 @@ def resolve_image_path(relative_path: str) -> Path | None:
         return None
     path = PROJECT_ROOT / relative_path
     return path if path.exists() else None
+
+
+def get_scene_image_sources(scene: dict[str, Any]) -> tuple[str | None, str | None, Path | None, Path | None]:
+    """Return pre/post demo URLs (Stitch) and local paths if available."""
+    pre_url = scene.get("pre_image_url") or None
+    post_url = scene.get("post_image_url") or None
+    pre_path = resolve_image_path(scene.get("pre_image_path", ""))
+    post_path = resolve_image_path(scene.get("post_image_path", ""))
+    if pre_path and post_path:
+        return None, None, pre_path, post_path
+    return pre_url, post_url, pre_path, post_path
 
 
 @st.cache_data(show_spinner=False)

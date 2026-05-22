@@ -7,24 +7,21 @@ from src.dashboard.labels import display_label
 
 
 def render(class_counts: dict[str, int], total: int | None = None) -> None:
-    """Horizontal severity breakdown bars."""
     total = total or sum(class_counts.values()) or 1
-    st.markdown('<div class="ds-panel-title">Severity Breakdown</div>', unsafe_allow_html=True)
+    st.markdown('<h3 class="ds-panel-head">Severity Breakdown</h3>', unsafe_allow_html=True)
     order = list(DAMAGE_CLASSES)
     order.reverse()
+    rows = ""
     for label in order:
         count = class_counts.get(label, 0)
         pct = 100 * count / total
         color = OVERLAY_COLORS.get(label, "#9AA8BC")
         name = display_label(label)
-        st.markdown(
-            f"""
-            <div class="ds-severity-row">
-                <div class="ds-severity-label"><span>{name}</span><span>{pct:.0f}%</span></div>
-                <div class="ds-severity-bar-bg">
-                    <div class="ds-severity-bar-fill" style="width:{pct:.1f}%;background:{color}"></div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        rows += f"""
+        <div class="ds-sev-row">
+            <span class="ds-sev-name">{name}</span>
+            <div class="ds-sev-track"><div class="ds-sev-fill" style="width:{pct:.0f}%;background:{color}"></div></div>
+            <span class="ds-sev-pct">{pct:.0f}%</span>
+        </div>
+        """
+    st.markdown(rows, unsafe_allow_html=True)

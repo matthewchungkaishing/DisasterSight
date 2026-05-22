@@ -11,12 +11,13 @@ if str(ROOT) not in sys.path:
 
 from src.dashboard.components import confusion_matrix, shell, sidebar
 from src.dashboard.components.confusion_matrix import confusion_matrix_csv
-from src.dashboard.components.metric_card import _card_html
 from src.dashboard.data_loaders import failure_case_images, load_metrics
-from src.dashboard.styles import inject_theme
+from src.dashboard.navigation import set_active_page
+from src.dashboard.navigation import set_active_page
+from src.dashboard.styles import icon
 
-inject_theme()
-shell.render_header("analytics")
+set_active_page("analytics")
+shell.render_topbar("analytics")
 sidebar.render_sidebar_extras()
 
 metrics = load_metrics()
@@ -32,10 +33,17 @@ shell.render_page_heading(
 delta_f1 = metrics.get("macro_f1_delta", 0)
 delta_rec = metrics.get("recall_delta", 0)
 metrics_html = (
-    _card_html("Macro F1", f"{metrics.get('macro_f1', 0):.3f}", f'<span class="ds-trend-up">+{delta_f1:.2f}</span>', "")
-    + _card_html("Precision", f"{metrics.get('precision_macro', 0):.3f}", f"— {metrics.get('precision_label', 'Stbl')}", "")
-    + _card_html("Recall", f"{metrics.get('recall_macro', 0):.3f}", f'<span class="ds-trend-down">{delta_rec:.2f}</span>', "")
-    + _card_html("Held-out Events", str(metrics.get("held_out_events", 0)), "🌐 Global", "")
+    f'<div class="ds-metric-card"><span class="ds-metric-label">Macro F1</span>'
+    f'<div class="ds-metric-value">{metrics.get("macro_f1", 0):.3f} '
+    f'<span style="font-size:0.75rem;color:#4caf50">+{delta_f1:.2f}</span></div></div>'
+    f'<div class="ds-metric-card"><span class="ds-metric-label">Precision</span>'
+    f'<div class="ds-metric-value">{metrics.get("precision_macro", 0):.3f} '
+    f'<span style="font-size:0.75rem;color:#6b7a90">— {metrics.get("precision_label", "Stbl")}</span></div></div>'
+    f'<div class="ds-metric-card"><span class="ds-metric-label">Recall</span>'
+    f'<div class="ds-metric-value error">{metrics.get("recall_macro", 0):.3f} '
+    f'<span style="font-size:0.75rem">{delta_rec:.2f}</span></div></div>'
+    f'<div class="ds-metric-card"><span class="ds-metric-label">Held-out Events</span>'
+    f'<div class="ds-metric-value">{metrics.get("held_out_events", 0)} {icon("public", size=20)}</div></div>'
 )
 st.markdown(f'<div class="ds-metrics-grid">{metrics_html}</div>', unsafe_allow_html=True)
 

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import streamlit as st
 
+from src.dashboard.navigation import focus_scene
+
 
 def render(summaries: list[dict]) -> None:
     pending = [s for s in summaries if s.get("review_flag_count", 0) > 0]
     if not pending:
-        st.markdown('<p style="color:#9aa8bc;font-size:0.88rem">No scenes flagged for review.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#c2c6d6;font-size:0.88rem">No scenes flagged for review.</p>', unsafe_allow_html=True)
         return
 
     for item in pending[:4]:
@@ -19,5 +21,4 @@ def render(summaries: list[dict]) -> None:
             st.caption(f"{name} · {flags} building(s) flagged")
         with row_r:
             if st.button("Start Review", key=f"review_btn_{sid}", use_container_width=True):
-                st.session_state.selected_scene_id = sid
-                st.toast(f"Scene {sid} selected — open Dashboard to inspect.")
+                focus_scene(sid, "dashboard")

@@ -32,20 +32,20 @@ pages = [
     st.Page(
         DASHBOARD_DIR / "pages/1_Dashboard.py",
         title="Dashboard",
-        icon="📊",
+        icon=":material/dashboard:",
         default=True,
     ),
     st.Page(
         DASHBOARD_DIR / "pages/2_Map_Explorer.py",
         title="Map Explorer",
-        icon="🗺️",
+        icon=":material/map:",
     ),
     st.Page(
         DASHBOARD_DIR / "pages/3_Analytics.py",
         title="Analytics",
-        icon="📈",
+        icon=":material/analytics:",
     ),
 ]
 
-pg = st.navigation(pages)
+pg = st.navigation(pages, position="hidden")
 pg.run()
