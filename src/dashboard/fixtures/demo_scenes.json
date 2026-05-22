@@ -1,0 +1,49 @@
+[
+  {
+    "scene_id": "pinery-bushfire_00000000",
+    "disaster_name": "Pinery Bushfire",
+    "disaster_type": "wildfire",
+    "pre_image_path": "data/raw/xbd/tier3/pinery-bushfire/images/pinery-bushfire_00000000_pre_disaster.png",
+    "post_image_path": "data/raw/xbd/tier3/pinery-bushfire/images/pinery-bushfire_00000000_post_disaster.png",
+    "pre_image_url": "https://lh3.googleusercontent.com/aida-public/AB6AXuCXxFsE6k3OrA0lWDG144NXDxcvIetT-C30d_OmaV7VZgC-M3b4INvVAjOrDiTaaWawGgpcjWdTLx62D1g1KB9pfVWeJ91lel6-pO3MmwCxuVgF9pPWQiOHJUkHOSgqMiBSWJE9utiIjUJkMapQgG_y2s1F1nGqmC3ak_ksOglP9vfT2WSc3ounhW2wYluTOWHI2kW8HHdv660lOzgIky8Wj69nlcn7Q-h3WMrqdJ3ZoUk-vyctYCTr_memrQtATt0h-QbhvN4OWTO1",
+    "post_image_url": "https://lh3.googleusercontent.com/aida-public/AB6AXuAH85iedMj8ECalYrfBM2B2TtBzQOAgyYXbe7AFWXK78DwVfnvKBhu0eUQJzWnjLHr4ukuxQIN-0FbTHr8Jyx2rXslUI6sK-b5qjbzx0rCKAL1ztrRnHL0yC_ktnbV5dUPoDAbE6cfTB8s8XMOoAHsTKag6pP8gKtGvsjNZCpQQC2W97pGW00YvwX02P2dwGaJ5FcrCCDd1TC-FvjBMTfzAN1EsicvSoaMZ6AY-vXCJkUj32uEW696Qd8og32YKkpQGoIvAGdT2rCuT",
+    "label_json_path": "data/raw/xbd/tier3/pinery-bushfire/labels/pinery-bushfire_00000000_post_disaster.json",
+    "split": "test"
+  },
+  {
+    "scene_id": "SCN-8821-A",
+    "disaster_name": "Maui Wildfires",
+    "disaster_type": "wildfire",
+    "pre_image_path": "",
+    "post_image_path": "",
+    "label_json_path": "",
+    "split": "test"
+  },
+  {
+    "scene_id": "SCN-7492-B",
+    "disaster_name": "Morocco Earthquake",
+    "disaster_type": "earthquake",
+    "pre_image_path": "",
+    "post_image_path": "",
+    "label_json_path": "",
+    "split": "val"
+  },
+  {
+    "scene_id": "SCN-9104-X",
+    "disaster_name": "Libya Floods",
+    "disaster_type": "flood",
+    "pre_image_path": "",
+    "post_image_path": "",
+    "label_json_path": "",
+    "split": "test"
+  },
+  {
+    "scene_id": "SCN-1102-C",
+    "disaster_name": "Turkey Earthquake",
+    "disaster_type": "earthquake",
+    "pre_image_path": "",
+    "post_image_path": "",
+    "label_json_path": "",
+    "split": "val"
+  }
+]
