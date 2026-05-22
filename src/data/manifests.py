@@ -60,6 +60,28 @@ def build_scene_manifest_rows(
     return rows
 
 
+def build_event_aware_scene_manifest_rows(
+    scenes: dict[str, dict[str, object]],
+    *,
+    train_fraction: float,
+    val_fraction: float,
+    test_fraction: float,
+    seed: int,
+) -> list[dict[str, str]]:
+    """Build manifest rows and assign splits using complete scenes only."""
+    complete_scene_ids = [
+        scene_id for scene_id in sorted(scenes) if is_complete_scene(scenes[scene_id])
+    ]
+    splits = make_event_aware_splits(
+        complete_scene_ids,
+        train_fraction=train_fraction,
+        val_fraction=val_fraction,
+        test_fraction=test_fraction,
+        seed=seed,
+    )
+    return build_scene_manifest_rows(scenes, splits=splits)
+
+
 def make_event_aware_splits(
     scene_ids: Iterable[str],
     train_fraction: float,

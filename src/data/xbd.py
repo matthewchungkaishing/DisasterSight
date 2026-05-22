@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from src.common.constants import DAMAGE_CLASSES
-from src.common.paths import resolve_path
+from src.common.paths import project_relative_path, resolve_path
 
 SUPPORTED_EXTENSIONS = {".json", ".png", ".jpg", ".jpeg", ".tif", ".tiff"}
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
@@ -145,8 +145,8 @@ def scan_xbd_files(
         if not record["scene_id"]:
             record.update(empty_scene_record(scene_id))
 
-        record[role] = str(path)
-        record["matched_files"].append(str(path))
+        record[role] = project_relative_path(path)
+        record["matched_files"].append(project_relative_path(path))
         if keyword_list:
             record["matched_keywords"].update(
                 keyword for keyword in keyword_list if keyword in path.name.lower()

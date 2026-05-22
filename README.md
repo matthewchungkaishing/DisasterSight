@@ -65,6 +65,7 @@ DisasterSight/
   data/
     README.md
   docs/
+    foundation_guardrails.md
     implementation_plan.md
     interface_contracts.md
   src/
@@ -143,3 +144,6 @@ python -m ruff check .
 python -m unittest discover -s tests
 python -m compileall -q src tests
 ```
+
+Before adding a new phase, review `docs/foundation_guardrails.md` and update
+`docs/interface_contracts.md` when a module boundary or output schema changes.

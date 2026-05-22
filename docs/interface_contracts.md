@@ -17,8 +17,12 @@ Required fields:
 | `disaster_type` | `str` | Disaster category |
 | `pre_image_path` | `str` | Relative path to pre-disaster image |
 | `post_image_path` | `str` | Relative path to post-disaster image |
+| `pre_json_path` | `str` | Relative path to pre-disaster xBD metadata |
+| `post_json_path` | `str` | Relative path to post-disaster xBD labels/metadata |
 | `label_json_path` | `str` | Relative path to xBD labels/metadata |
 | `split` | `str` | `train`, `val`, or `test` |
+
+Manifest paths should be repository-relative when the files live under the project root.
 
 ## 2. Building Record Contract
 
@@ -33,10 +37,14 @@ Required fields:
 |---|---|---|
 | `building_id` | `str` | Stable per-scene building identifier |
 | `scene_id` | `str` | Parent scene id |
+| `disaster_name` | `str` | Parent disaster/event name |
+| `disaster_type` | `str` | Parent disaster category |
+| `split` | `str` | Dataset split inherited from the scene manifest |
 | `geometry_source` | `str` | Source used to derive geometry, such as `wkt`, `geometry`, or `bbox` |
 | `polygon_xy` | `str` | JSON-serialized pixel-coordinate polygon points, or an empty list for bbox-only records |
 | `bbox_x1` / `bbox_y1` / `bbox_x2` / `bbox_y2` | `int` | Crop bounding box in pixel coordinates |
 | `damage_label` | `str` | One of configured damage classes |
+| `crop_width` / `crop_height` | `int` | Padded crop dimensions before resizing |
 | `pre_crop_path` | `str` | Relative path to saved pre-disaster crop |
 | `post_crop_path` | `str` | Relative path to saved post-disaster crop |
 | `pre_masked_crop_path` | `str` | Optional relative path to masked pre-disaster crop |

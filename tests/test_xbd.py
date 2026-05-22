@@ -8,12 +8,17 @@ from pathlib import Path
 
 from PIL import Image
 
+from src.common.paths import PROJECT_ROOT, load_config, project_relative_path
 from src.data.crop_extraction import (
     extract_crops_for_scene,
     pad_and_clamp_bbox,
     write_crop_manifest_csv,
 )
-from src.data.manifests import build_scene_manifest_rows, make_event_aware_splits
+from src.data.manifests import (
+    build_event_aware_scene_manifest_rows,
+    build_scene_manifest_rows,
+    make_event_aware_splits,
+)
 from src.data.xbd import (
     POST_IMAGE_KEY,
     POST_JSON_KEY,
@@ -112,6 +117,14 @@ class XbdParsingTests(unittest.TestCase):
         self.assertTrue(record[PRE_JSON_KEY].endswith("_pre_disaster.json"))
         self.assertTrue(record[POST_IMAGE_KEY].endswith("_post_disaster.png"))
 
+    def test_project_relative_path_keeps_repo_manifests_portable(self) -> None:
+        path = PROJECT_ROOT / "data" / "raw" / "xbd" / "demo_pre_disaster.png"
+
+        self.assertEqual(
+            project_relative_path(path),
+            "data/raw/xbd/demo_pre_disaster.png",
+        )
+
 
 class ManifestTests(unittest.TestCase):
     def test_disaster_name_and_type_helpers(self) -> None:
@@ -161,6 +174,52 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(rows[0]["post_image_path"], "post.png")
         self.assertEqual(rows[0]["label_json_path"], "post.json")
         self.assertEqual(rows[0]["split"], "train")
+
+    def test_event_aware_manifest_splits_complete_scenes_only(self) -> None:
+        scenes = {
+            "complete-event_00000001": {
+                "scene_id": "complete-event_00000001",
+                "disaster_name": "complete-event",
+                "disaster_type": "wildfire",
+                PRE_IMAGE_KEY: "pre.png",
+                POST_IMAGE_KEY: "post.png",
+                PRE_JSON_KEY: "pre.json",
+                POST_JSON_KEY: "post.json",
+            },
+            "incomplete-event_00000001": {
+                "scene_id": "incomplete-event_00000001",
+                "disaster_name": "incomplete-event",
+                "disaster_type": "wildfire",
+                PRE_IMAGE_KEY: "pre.png",
+                POST_IMAGE_KEY: "",
+                PRE_JSON_KEY: "pre.json",
+                POST_JSON_KEY: "post.json",
+            },
+        }
+
+        rows = build_event_aware_scene_manifest_rows(
+            scenes,
+            train_fraction=0.7,
+            val_fraction=0.15,
+            test_fraction=0.15,
+            seed=42,
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["scene_id"], "complete-event_00000001")
+        self.assertIn(rows[0]["split"], {"train", "val", "test"})
+
+
+class ConfigGuardrailTests(unittest.TestCase):
+    def test_committed_config_matches_foundation_contract(self) -> None:
+        config = load_config()
+
+        self.assertEqual(config["dataset"]["name"], "xbd")
+        self.assertEqual(config["dataset"]["subset_strategy"], "event_aware")
+        self.assertEqual(
+            config["labels"]["damage_classes"],
+            ["no_damage", "minor_damage", "major_damage", "destroyed"],
+        )
 
 
 class CropExtractionTests(unittest.TestCase):

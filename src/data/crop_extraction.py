@@ -9,7 +9,7 @@ from typing import Any
 from PIL import Image, ImageDraw
 
 from src.common.constants import DAMAGE_CLASSES
-from src.common.paths import PROJECT_ROOT, get_path_map, load_config, resolve_path
+from src.common.paths import get_path_map, load_config, project_relative_path, resolve_path
 from src.data.xbd import (
     POST_IMAGE_KEY,
     POST_JSON_KEY,
@@ -275,10 +275,7 @@ def _scene_path(record: dict[str, Any], *keys: str) -> Path:
 def _portable_path(path: Path | None) -> str:
     if path is None:
         return ""
-    try:
-        return str(path.resolve().relative_to(PROJECT_ROOT))
-    except ValueError:
-        return str(path)
+    return project_relative_path(path)
 
 
 def _safe_filename(value: str) -> str:

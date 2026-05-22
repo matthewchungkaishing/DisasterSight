@@ -5,8 +5,7 @@ import sys
 
 from src.common.paths import get_path_map, load_config
 from src.data.manifests import (
-    build_scene_manifest_rows,
-    make_event_aware_splits,
+    build_event_aware_scene_manifest_rows,
     write_scene_manifest_csv,
 )
 from src.data.xbd import scan_xbd_files
@@ -38,15 +37,13 @@ def main() -> int:
         return 1
 
     scenes = scan_xbd_files(xbd_root)
-    scene_ids = sorted(scenes)
-    splits = make_event_aware_splits(
-        scene_ids=scene_ids,
+    rows = build_event_aware_scene_manifest_rows(
+        scenes,
         train_fraction=float(dataset_config.get("train_split", 0.7)),
         val_fraction=float(dataset_config.get("val_split", 0.15)),
         test_fraction=float(dataset_config.get("test_split", 0.15)),
         seed=int(project_config.get("random_seed", 42)),
     )
-    rows = build_scene_manifest_rows(scenes, splits=splits)
     write_scene_manifest_csv(output_path, rows)
 
     split_counts: dict[str, int] = {}
