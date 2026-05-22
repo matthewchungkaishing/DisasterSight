@@ -16,13 +16,15 @@ if str(_ROOT) not in sys.path:
 
 import streamlit as st  # noqa: E402
 
+from src.dashboard.sidebar_state import get_sidebar_state, init_sidebar_state  # noqa: E402
 from src.dashboard.styles import inject_theme  # noqa: E402
 
+init_sidebar_state()
 st.set_page_config(
     page_title="DisasterSight",
     page_icon="🛰️",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state=get_sidebar_state(),
 )
 
 inject_theme()

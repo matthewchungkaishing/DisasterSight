@@ -31,7 +31,6 @@
       this.baseY = 0;
       this.dragging = false;
       this.lastPointer = { x: 0, y: 0 };
-      this._bindControls();
       this._bindPointer();
     }
 
@@ -153,26 +152,6 @@
         x: clientX - rect.left,
         y: clientY - rect.top,
       };
-    }
-
-    _bindControls() {
-      this.root.querySelectorAll("[data-zoom-action]").forEach((button) => {
-        button.addEventListener("click", (event) => {
-          event.stopPropagation();
-          const action = button.dataset.zoomAction;
-          const center = {
-            x: this.viewport.clientWidth / 2,
-            y: this.viewport.clientHeight / 2,
-          };
-          if (action === "in") {
-            this.zoomBy(ZOOM_STEP, center.x, center.y);
-          } else if (action === "out") {
-            this.zoomBy(-ZOOM_STEP, center.x, center.y);
-          } else if (action === "reset") {
-            this.resetView();
-          }
-        });
-      });
     }
 
     _bindPointer() {

@@ -99,14 +99,14 @@ body {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: contain;
   user-select: none;
   -webkit-user-drag: none;
   pointer-events: none;
 }
 
 .pane-chip,
-.pane-mode-btn,
-.pane-zoom {
+.pane-mode-btn {
   position: absolute;
   z-index: 2;
   border: 1px solid var(--card-border);
@@ -137,40 +137,15 @@ body {
   color: var(--text);
   cursor: pointer;
   padding: 0;
-}
-
-.pane-zoom {
-  right: 0.5rem;
-  bottom: 0.5rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.1rem;
-  border-radius: 0.45rem;
-  padding: 0.1rem;
-}
-
-.pane-zoom button,
-.pane-mode-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
   border: 0;
-  border-radius: 0.35rem;
-  color: var(--muted);
   background: transparent;
-  cursor: pointer;
 }
 
-.pane-zoom button:hover,
 .pane-mode-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   color: var(--text);
 }
 
-.pane-zoom button:focus-visible,
 .pane-mode-btn:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;

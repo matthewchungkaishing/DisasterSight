@@ -12,8 +12,8 @@ from src.dashboard.navigation import set_active_page
 from src.dashboard.styles import icon
 
 set_active_page("analytics")
-shell.render_topbar()
 sidebar.render_sidebar_extras()
+shell.render_topbar()
 
 metrics = load_metrics()
 matrix = metrics.get("confusion_matrix")

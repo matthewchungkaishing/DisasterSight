@@ -9,8 +9,8 @@ from PIL import Image
 
 
 def image_to_data_uri(image: Image.Image) -> str:
-    """Encode a display image for the dashboard viewer."""
+    """Encode a display image losslessly for the dashboard viewer."""
     buffer = BytesIO()
-    image.convert("RGB").save(buffer, format="JPEG", quality=90, optimize=True)
+    image.convert("RGB").save(buffer, format="PNG")
     encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
-    return f"data:image/jpeg;base64,{encoded}"
+    return f"data:image/png;base64,{encoded}"

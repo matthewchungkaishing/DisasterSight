@@ -60,12 +60,47 @@
   display: none;
 }
 
-.stApp > * {
+.stApp > [data-testid="stAppViewContainer"] {
   position: relative;
-  z-index: 1;
+  z-index: 0;
 }
 
+/* Keep header shell so Streamlit's expand-sidebar control remains available */
 header[data-testid="stHeader"] {
+  display: block !important;
+  visibility: visible !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  z-index: 100020 !important;
+}
+
+header[data-testid="stHeader"] [data-testid="stDecoration"] {
+  display: none !important;
+}
+
+header[data-testid="stHeader"] [data-testid="stToolbar"] {
+  position: fixed !important;
+  top: 0.7rem !important;
+  left: 0.7rem !important;
+  right: auto !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+  z-index: 100021 !important;
+  pointer-events: none;
+}
+
+header[data-testid="stHeader"] [data-testid="stToolbar"] button {
+  pointer-events: auto;
+}
+
+header[data-testid="stHeader"] [data-testid="stToolbar"] button:not([data-testid="stExpandSidebarButton"]) {
   display: none !important;
 }
 
@@ -96,17 +131,27 @@ section[data-testid="stSidebar"] > div {
   padding-top: 0.5rem !important;
 }
 
-/* Push sidebar collapse button down so it doesn't overlap the brand logo */
+/* Sidebar collapse (expanded) and expand (collapsed) controls */
 section[data-testid="stSidebar"] button[data-testid="stSidebarCollapseButton"],
-button[data-testid="stSidebarCollapsedControl"] {
-  top: 0.6rem !important;
-  z-index: 10 !important;
+button[data-testid="stExpandSidebarButton"] {
+  z-index: 100022 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  background-color: var(--ds-sidebar) !important;
+  border: 1px solid var(--ds-outline-variant) !important;
+  border-radius: 0.4rem !important;
+  color: var(--ds-on-surface) !important;
 }
 
-/* When sidebar is collapsed, position the expand button so it clears the topbar logo */
-button[data-testid="stSidebarCollapsedControl"] {
-  top: 0.6rem !important;
-  left: 0.5rem !important;
+button[data-testid="stExpandSidebarButton"] {
+  position: fixed !important;
+  top: 0.7rem !important;
+  left: 0.7rem !important;
+}
+
+[data-testid="stMain"],
+section.main {
+  z-index: 0 !important;
 }
 
 .ds-nav-title {
@@ -236,7 +281,7 @@ section[data-testid="stSidebar"] .stSlider [data-testid="stWidgetLabel"] {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.75rem 0;
+  padding: 0.5rem 0 0.75rem;
   margin: -0.5rem 0 1rem;
   border-bottom: 1px solid var(--ds-outline-variant);
 }
@@ -270,6 +315,21 @@ section[data-testid="stSidebar"] .stSlider [data-testid="stWidgetLabel"] {
   font-weight: 700;
   color: var(--ds-on-surface);
   letter-spacing: 0;
+}
+
+.ds-page-title {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--ds-on-surface);
+  margin: 0 0 0.25rem;
+}
+
+.ds-page-subtitle {
+  font-family: "Inter", system-ui, sans-serif;
+  color: var(--ds-on-surface-variant);
+  font-size: 0.9rem;
+  margin: 0 0 1rem;
 }
 
 /* KPI grid */
@@ -419,6 +479,55 @@ section[data-testid="stSidebar"] .stSlider [data-testid="stWidgetLabel"] {
 .ds-panel--compact .ds-sev-name {
   width: 6.25rem;
   font-size: 0.8rem;
+}
+
+.ds-panel--map-explorer {
+  margin-top: 0.25rem;
+}
+
+.ds-map-explorer-bottom + [data-testid="stHorizontalBlock"] {
+  gap: 1.5rem !important;
+  align-items: stretch !important;
+  margin-top: 1.25rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.ds-panel--map-explorer .ds-panel-head {
+  font-size: 0.88rem;
+  margin-bottom: 0.55rem;
+}
+
+.ds-rationale-box--compact {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.ds-review-empty,
+.ds-review-meta {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.8rem;
+  color: var(--ds-on-surface-variant);
+  margin: 0 0 0.45rem;
+}
+
+.ds-review-scene {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ds-on-surface);
+  margin: 0 0 0.15rem;
+}
+
+.ds-toolbar-label {
+  margin: 0 0 0.45rem;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ds-on-surface);
+  white-space: nowrap;
 }
 
 .ds-page-section--table + [data-testid="stHorizontalBlock"] .ds-table-panel--compact .ds-table-wrap {
@@ -601,7 +710,12 @@ section[data-testid="stSidebar"] .stSlider [data-testid="stWidgetLabel"] {
 .ds-table {
   width: 100%;
   border-collapse: collapse;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: 0.875rem;
+}
+
+.ds-table--priority tbody td:not(.mono) {
+  font-family: "Inter", system-ui, sans-serif;
 }
 
 .ds-table thead th {
@@ -707,6 +821,32 @@ section[data-testid="stSidebar"] .stSlider [data-testid="stWidgetLabel"] {
   display: block;
   color: var(--ds-on-surface);
   margin-bottom: 0.25rem;
+}
+
+.ds-banner--compact {
+  margin-bottom: 0;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.ds-banner--compact strong {
+  font-size: 0.8rem;
+  margin-bottom: 0.15rem;
+}
+
+.ds-pagination-label {
+  margin: 0;
+  text-align: center;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.8rem;
+  color: var(--ds-on-surface-variant);
+  white-space: nowrap;
+  line-height: 2.4rem;
+}
+
+.ds-table-range {
+  justify-content: flex-start;
 }
 
 .ds-footer-bar {
@@ -847,47 +987,54 @@ section[data-testid="stSidebar"] .stSlider [data-testid="stWidgetLabel"] {
   color: #fff !important;
 }
 
-.ds-action-row {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-top: 0.5rem;
+/* Map Explorer toolbar (main content only) */
+.main .ds-map-explorer-toolbar + [data-testid="stHorizontalBlock"] {
+  align-items: flex-end !important;
 }
 
-.ds-action-row .stButton > button {
-  font-size: 0.8rem !important;
-  padding: 0.35rem 0.65rem !important;
-  min-height: 0 !important;
+.main .ds-map-explorer-toolbar + [data-testid="stHorizontalBlock"] [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+  background-color: var(--ds-surface-elevated) !important;
+  border-color: var(--ds-surface-elevated-border) !important;
+  min-height: 2.4rem !important;
+}
+
+.main .ds-map-explorer-toolbar + [data-testid="stHorizontalBlock"] [data-testid="stSelectbox"] span,
+.main .ds-map-explorer-toolbar + [data-testid="stHorizontalBlock"] [data-testid="stRadio"] label {
+  font-family: "Inter", system-ui, sans-serif !important;
+}
+
+.main .ds-map-explorer-toolbar + [data-testid="stHorizontalBlock"] .stButton > button {
+  font-family: "Inter", system-ui, sans-serif !important;
+  font-size: 0.78rem !important;
+  padding: 0.35rem 0.5rem !important;
+  min-height: 2.4rem !important;
   background: var(--ds-surface-elevated) !important;
   border: 1px solid var(--ds-surface-elevated-border) !important;
-  color: var(--ds-secondary) !important;
-  border-radius: 0.5rem !important;
-}
-
-.ds-action-row .stButton > button:hover {
-  background: var(--ds-surface-elevated-hover) !important;
-  border-color: var(--ds-outline-variant) !important;
-  color: var(--ds-on-surface) !important;
-}
-
-/* Map Explorer sort + pagination controls (main content only) */
-.main [data-testid="stSelectbox"] [data-baseweb="select"] > div {
-  background-color: var(--ds-surface-elevated) !important;
-  border-color: var(--ds-surface-elevated-border) !important;
-}
-
-.main [data-testid="stNumberInput"] [data-baseweb="input"] {
-  background-color: var(--ds-surface-elevated) !important;
-  border-color: var(--ds-surface-elevated-border) !important;
-}
-
-.main [data-testid="stNumberInput"] button {
-  background-color: var(--ds-surface-elevated) !important;
-  border-color: var(--ds-surface-elevated-border) !important;
   color: var(--ds-on-surface-variant) !important;
 }
 
-.main [data-testid="stNumberInput"] button:hover {
-  background-color: var(--ds-surface-elevated-hover) !important;
+.main .ds-map-explorer-toolbar + [data-testid="stHorizontalBlock"] .stButton > button:hover:not(:disabled) {
+  background: var(--ds-surface-elevated-hover) !important;
   color: var(--ds-on-surface) !important;
+}
+
+.main .ds-map-explorer-toolbar + [data-testid="stHorizontalBlock"] .stButton > button:disabled {
+  opacity: 0.45;
+}
+
+/* Priority table — Inspect column offset below thead */
+.main [data-testid="stColumn"]:has(.ds-table-actions) {
+  padding-top: 2.45rem !important;
+}
+
+.main .ds-table-actions {
+  display: none;
+}
+
+.main [data-testid="stColumn"]:has(.ds-table-actions) .stButton > button {
+  font-family: "Inter", system-ui, sans-serif !important;
+  font-size: 0.75rem !important;
+  min-height: 2.15rem !important;
+  margin-bottom: 0.2rem !important;
+  padding: 0.25rem 0.4rem !important;
 }

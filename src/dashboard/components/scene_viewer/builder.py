@@ -142,17 +142,6 @@ def _pane_html(pane: ImagePane) -> str:
           >
             <span class="material-symbols-outlined" aria-hidden="true">close_fullscreen</span>
           </button>
-          <div class="pane-zoom" aria-label="{safe_label} zoom controls">
-            <button type="button" data-zoom-action="in" aria-label="Zoom in {safe_label}">
-              <span class="material-symbols-outlined" aria-hidden="true">zoom_in</span>
-            </button>
-            <button type="button" data-zoom-action="out" aria-label="Zoom out {safe_label}">
-              <span class="material-symbols-outlined" aria-hidden="true">zoom_out</span>
-            </button>
-            <button type="button" data-zoom-action="reset" aria-label="Reset zoom {safe_label}">
-              <span class="material-symbols-outlined" aria-hidden="true">fit_screen</span>
-            </button>
-          </div>
         </figure>
       </div>
 """

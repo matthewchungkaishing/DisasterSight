@@ -19,7 +19,7 @@ def _logo_data_uri() -> str:
 
 
 def render_topbar() -> None:
-    """Render the app-wide top bar."""
+    """Render the app-wide top bar with logo and wordmark."""
     logo_uri = _logo_data_uri()
     st.markdown(
         f'<div class="ds-topbar">'
@@ -33,15 +33,9 @@ def render_topbar() -> None:
 
 def render_page_heading(title: str, subtitle: str = "") -> None:
     """Render the page title and optional subtitle."""
-    sub = (
-        f'<p class="ds-page-subtitle" style="color:#c2c6d6;font-size:0.9rem;'
-        f'margin:0 0 1rem">{subtitle}</p>'
-        if subtitle
-        else ""
-    )
+    sub = f'<p class="ds-page-subtitle">{subtitle}</p>' if subtitle else ""
     st.markdown(
-        f'<h1 style="font-size:1.75rem;font-weight:600;color:#dee3ea;'
-        f'margin:0 0 0.25rem">{title}</h1>{sub}',
+        f'<h1 class="ds-page-title">{title}</h1>{sub}',
         unsafe_allow_html=True,
     )
 

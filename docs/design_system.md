@@ -39,6 +39,14 @@ Damage severity colors are defined in `src/common/constants.py` (`OVERLAY_COLORS
 - **Table row**: Top buildings by severity under Scene Explorer (left column, same width as viewer).
 - Layout markers and column weights live in `dashboard_layout.py`; styles in `theme.css`.
 
+## Map Explorer page hierarchy
+
+- **Header row**: Page title (left) and compact Responsible AI notice (`ds-banner--compact`, right). No subtitle under the title.
+- **Toolbar row**: Scene filter radio (left), inline **Sort by** label + selectbox (center, bottom-aligned), **Prev / Next** pagination (right). Filter/sort changes reset page index via `map_explorer/controls.py`.
+- **Table**: Priority ranking with per-row **Inspect** buttons in a right column (`priority_table.py`). Range footer: `Showing X–Y of Z scenes`. Pagination logic in `map_explorer/table_data.py` (pure, unit-tested).
+- **Bottom row**: Compact rationale and review queue panels (`map_explorer/panels.py`) with `gap="large"`. Review queue title uses live flagged-building counts from `review_queue.py` (not hardcoded).
+- **Typography**: Inter for UI copy; IBM Plex Mono for scene IDs and numeric table cells only.
+
 ## Spacing
 
 8px grid: 8, 16, 24, 32. Card radius 12px, buttons 8px, chips fully rounded.
@@ -47,3 +55,4 @@ Damage severity colors are defined in `src/common/constants.py` (`OVERLAY_COLORS
 
 - Theme base: `.streamlit/config.toml`
 - Overrides: `src/dashboard/theme.css` via `styles.inject_theme()`
+- **Sidebar**: Do not hide `header[data-testid="stHeader"]` entirely — Streamlit 1.57+ places `stExpandSidebarButton` in the toolbar when the sidebar is collapsed.

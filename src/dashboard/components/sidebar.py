@@ -30,14 +30,14 @@ def render_sidebar_extras() -> str:
     """Render the full sidebar and return the selected scene ID."""
     _init_session_state()
     active = get_active_page()
+    _render_navigation(active)
+
     scenes = load_scene_ids()
     if st.session_state.selected_scene_id not in scenes and scenes:
         st.session_state.selected_scene_id = scenes[0]
     if not scenes:
         st.sidebar.warning("No scenes found. Generate a scene manifest under data/processed/.")
         return ""
-
-    _render_navigation(active)
     selected = _render_scene_selector(scenes)
     _render_overlay_controls()
     _render_actions()

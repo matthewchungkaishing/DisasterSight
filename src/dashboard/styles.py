@@ -54,6 +54,22 @@ def inject_theme() -> None:
                 icons.href = {icons_json};
                 doc.head.appendChild(icons);
             }}
+
+            function dsStyleSidebarControls() {{
+                const expand = doc.querySelector('button[data-testid="stExpandSidebarButton"]');
+                if (expand) {{
+                    expand.style.zIndex = "100023";
+                }}
+            }}
+
+            if (!window.dsSidebarObserver) {{
+                window.dsSidebarObserver = new MutationObserver(dsStyleSidebarControls);
+                window.dsSidebarObserver.observe(doc.body, {{
+                    childList: true,
+                    subtree: true,
+                }});
+                dsStyleSidebarControls();
+            }}
         }})();
         </script>
         """,

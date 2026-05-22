@@ -1,8 +1,8 @@
 """Tests for dashboard pure-logic modules.
 
-Tests cover :mod:`labels`, :mod:`priority`, :mod:`artifact_resolver`,
-and :mod:`overlays` — all the modules that can be exercised without a
-running Streamlit server.
+Tests cover :mod:`labels`, :mod:`priority`, :mod:`map_explorer` table data,
+:mod:`artifact_resolver`, and :mod:`overlays` — all the modules that can be
+exercised without a running Streamlit server.
 """
 
 from __future__ import annotations
@@ -164,6 +164,136 @@ class TestPriority(unittest.TestCase):
         self.assertIn("test_scene", text)
         self.assertIn("Test Disaster", text)
         self.assertIn("Human verification", text)
+
+
+class TestSidebarState(unittest.TestCase):
+    """Sidebar session state helpers."""
+
+    def test_init_and_get_sidebar_state(self) -> None:
+        import streamlit as st
+
+        from src.dashboard.sidebar_state import (
+            SIDEBAR_STATE_KEY,
+            get_sidebar_state,
+            init_sidebar_state,
+        )
+
+        st.session_state.clear()
+        init_sidebar_state("collapsed")
+        self.assertEqual(st.session_state[SIDEBAR_STATE_KEY], "collapsed")
+        self.assertEqual(get_sidebar_state(), "collapsed")
+
+        st.session_state.clear()
+        init_sidebar_state("expanded")
+        self.assertEqual(get_sidebar_state(), "expanded")
+
+
+class TestReviewQueue(unittest.TestCase):
+    """Review queue pending counts and headings."""
+
+    def _summaries(self) -> list[dict[str, Any]]:
+        return [
+            {"scene_id": "a", "review_flag_count": 2},
+            {"scene_id": "b", "review_flag_count": 0},
+            {"scene_id": "c", "review_flag_count": 1},
+        ]
+
+    def test_pending_building_count(self) -> None:
+        from src.dashboard.components.review_queue import count_pending_buildings
+
+        self.assertEqual(count_pending_buildings(self._summaries()), 3)
+
+    def test_pending_scene_count(self) -> None:
+        from src.dashboard.components.review_queue import count_pending_scenes
+
+        self.assertEqual(count_pending_scenes(self._summaries()), 2)
+
+    def test_review_queue_heading_zero(self) -> None:
+        from src.dashboard.components.review_queue import review_queue_heading
+
+        self.assertEqual(review_queue_heading([]), "Review Queue")
+
+    def test_review_queue_heading_buildings(self) -> None:
+        from src.dashboard.components.review_queue import review_queue_heading
+
+        self.assertEqual(
+            review_queue_heading(self._summaries()),
+            "Review Queue (3 buildings flagged)",
+        )
+
+    def test_review_queue_heading_singular(self) -> None:
+        from src.dashboard.components.review_queue import review_queue_heading
+
+        self.assertEqual(
+            review_queue_heading([{"review_flag_count": 1}]),
+            "Review Queue (1 building flagged)",
+        )
+
+
+class TestMapExplorerTableData(unittest.TestCase):
+    """Map Explorer filter, sort, and pagination (pure logic)."""
+
+    def _sample_rows(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "scene_id": "a",
+                "priority_score": 10,
+                "review_flag_count": 0,
+                "destroyed_share": 0.1,
+                "split": "train",
+            },
+            {
+                "scene_id": "b",
+                "priority_score": 90,
+                "review_flag_count": 2,
+                "destroyed_share": 0.8,
+                "split": "test",
+            },
+            {
+                "scene_id": "c",
+                "priority_score": 50,
+                "review_flag_count": 1,
+                "destroyed_share": 0.5,
+                "split": "val",
+            },
+        ]
+
+    def test_filter_review_required(self) -> None:
+        from src.dashboard.components.map_explorer.table_data import filter_and_sort_rows
+
+        rows = filter_and_sort_rows(self._sample_rows(), "Review Required", "Priority Score")
+        self.assertEqual([r["scene_id"] for r in rows], ["b", "c"])
+
+    def test_filter_test_split(self) -> None:
+        from src.dashboard.components.map_explorer.table_data import filter_and_sort_rows
+
+        rows = filter_and_sort_rows(self._sample_rows(), "Test", "Priority Score")
+        self.assertEqual([r["scene_id"] for r in rows], ["b"])
+
+    def test_sort_by_review_count(self) -> None:
+        from src.dashboard.components.map_explorer.table_data import filter_and_sort_rows
+
+        rows = filter_and_sort_rows(self._sample_rows(), "All", "Review count")
+        self.assertEqual([r["scene_id"] for r in rows], ["b", "c", "a"])
+
+    def test_clamp_page_bounds(self) -> None:
+        from src.dashboard.components.map_explorer.table_data import clamp_page, max_page_index
+
+        self.assertEqual(max_page_index(12, page_size=5), 2)
+        self.assertEqual(clamp_page(99, 12, page_size=5), 2)
+        self.assertEqual(clamp_page(-1, 12, page_size=5), 0)
+        self.assertEqual(clamp_page(0, 0, page_size=5), 0)
+
+    def test_paginate_rows_slice(self) -> None:
+        from src.dashboard.components.map_explorer.table_data import paginate_rows
+
+        rows = [{"scene_id": str(i)} for i in range(7)]
+        page_rows, start, end, clamped = paginate_rows(rows, 1, page_size=3)
+        self.assertEqual(start, 3)
+        self.assertEqual(end, 6)
+        self.assertEqual(clamped, 1)
+        self.assertEqual(len(page_rows), 3)
+        self.assertEqual(page_rows[0]["scene_id"], "3")
 
 
 class TestArtifactResolver(unittest.TestCase):
@@ -872,7 +1002,7 @@ class TestImageViewer(unittest.TestCase):
         self.assertIn('data-mode-action="split"', html_output)
         self.assertIn("class PaneViewport", html_output)
         self.assertNotIn("lightbox", html_output)
-        self.assertNotIn("object-fit: contain", html_output)
+        self.assertIn("object-fit: contain", html_output)
         self.assertNotIn('target="_blank"', html_output)
 
         viewer_js = Path("src/dashboard/components/scene_viewer/assets/viewer.js").read_text(
