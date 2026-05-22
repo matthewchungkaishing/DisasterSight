@@ -4,6 +4,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from PIL import Image
+
+from src.data.crop_extraction import (
+    extract_crops_for_scene,
+    pad_and_clamp_bbox,
+    write_crop_manifest_csv,
+)
 from src.data.manifests import build_scene_manifest_rows, make_event_aware_splits
 from src.data.xbd import (
     POST_IMAGE_KEY,
@@ -152,6 +159,88 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(rows[0]["post_image_path"], "post.png")
         self.assertEqual(rows[0]["label_json_path"], "post.json")
         self.assertEqual(rows[0]["split"], "train")
+
+
+class CropExtractionTests(unittest.TestCase):
+    def test_pad_and_clamp_bbox_respects_image_bounds(self) -> None:
+        bbox = pad_and_clamp_bbox((2, 3, 9, 10), padding=5, image_width=12, image_height=11)
+
+        self.assertEqual(bbox, (0, 0, 12, 11))
+
+    def test_extract_crops_for_scene_writes_paired_building_crops(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            pre_image_path = root / "demo_00000001_pre_disaster.png"
+            post_image_path = root / "demo_00000001_post_disaster.png"
+            post_json_path = root / "demo_00000001_post_disaster.json"
+            crops_root = root / "crops"
+
+            Image.new("RGB", (20, 20), (50, 50, 50)).save(pre_image_path)
+            Image.new("RGB", (20, 20), (150, 150, 150)).save(post_image_path)
+            post_json_path.write_text(
+                """
+                {
+                  "features": {
+                    "xy": [
+                      {
+                        "wkt": "POLYGON ((4 4, 12 4, 12 12, 4 12, 4 4))",
+                        "properties": {
+                          "uid": "building-a",
+                          "feature_type": "building",
+                          "subtype": "major-damage"
+                        }
+                      },
+                      {
+                        "wkt": "POLYGON ((1 1, 2 1, 2 2, 1 2, 1 1))",
+                        "properties": {
+                          "uid": "too-small",
+                          "feature_type": "building",
+                          "subtype": "destroyed"
+                        }
+                      }
+                    ]
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+
+            records = extract_crops_for_scene(
+                {
+                    "scene_id": "demo_00000001",
+                    "disaster_name": "demo",
+                    "disaster_type": "wildfire",
+                    "pre_image_path": str(pre_image_path),
+                    "post_image_path": str(post_image_path),
+                    "post_json_path": str(post_json_path),
+                    "split": "train",
+                },
+                crops_root,
+                target_size=8,
+                padding=1,
+                min_area_pixels=10,
+                save_masked=True,
+            )
+
+            self.assertEqual(len(records), 1)
+            self.assertEqual(records[0].building_id, "building-a")
+            self.assertEqual(records[0].damage_label, "major_damage")
+            self.assertEqual(records[0].split, "train")
+
+            pre_crop_path = root / records[0].pre_crop_path
+            post_crop_path = root / records[0].post_crop_path
+            self.assertTrue(pre_crop_path.exists())
+            self.assertTrue(post_crop_path.exists())
+            with Image.open(pre_crop_path) as pre_crop:
+                self.assertEqual(pre_crop.size, (8, 8))
+            with Image.open(post_crop_path) as post_crop:
+                self.assertEqual(post_crop.size, (8, 8))
+
+            manifest_path = root / "crop_manifest.csv"
+            write_crop_manifest_csv(manifest_path, records)
+            manifest_text = manifest_path.read_text(encoding="utf-8")
+            self.assertIn("building-a", manifest_text)
+            self.assertIn("major_damage", manifest_text)
 
 
 if __name__ == "__main__":
