@@ -1,0 +1,214 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap");
+
+.stApp {
+  background-color: #0b0e14;
+}
+
+section[data-testid="stSidebar"] {
+  background-color: #121820;
+  border-right: 1px solid #2d3a4f;
+}
+
+section[data-testid="stSidebar"] .stMarkdown h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9aa8bc;
+  font-weight: 600;
+}
+
+.block-container {
+  padding-top: 1rem;
+  max-width: 100%;
+}
+
+.ds-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0 1.25rem;
+  border-bottom: 1px solid #2d3a4f;
+  margin-bottom: 1rem;
+}
+
+.ds-wordmark {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #e8edf4;
+  letter-spacing: -0.02em;
+}
+
+.ds-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: #9aa8bc;
+  background: #161b22;
+  border: 1px solid #2d3a4f;
+}
+
+.ds-pill-info {
+  background: rgba(30, 58, 95, 0.55);
+  border-color: #42a5f5;
+  color: #c5d9f0;
+}
+
+.ds-ready {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.ds-metric-card {
+  background: #161b22;
+  border: 1px solid #2d3a4f;
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  min-height: 100px;
+}
+
+.ds-metric-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9aa8bc;
+  margin-bottom: 0.35rem;
+}
+
+.ds-metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #e8edf4;
+  line-height: 1.1;
+}
+
+.ds-metric-sub {
+  font-size: 0.8rem;
+  color: #6b7a90;
+  margin-top: 0.25rem;
+}
+
+.ds-badge {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ds-badge-no_damage { background: rgba(76, 175, 80, 0.2); color: #4caf50; border: 1px solid #4caf50; }
+.ds-badge-minor_damage { background: rgba(255, 193, 7, 0.15); color: #ffc107; border: 1px solid #ffc107; }
+.ds-badge-major_damage { background: rgba(255, 112, 67, 0.15); color: #ff7043; border: 1px solid #ff7043; }
+.ds-badge-destroyed { background: rgba(198, 40, 40, 0.2); color: #ef5350; border: 1px solid #c62828; }
+.ds-badge-review_required { background: rgba(66, 165, 245, 0.15); color: #42a5f5; border: 1px solid #42a5f5; }
+
+.ds-panel {
+  background: #161b22;
+  border: 1px solid #2d3a4f;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.ds-panel-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e8edf4;
+  margin-bottom: 0.75rem;
+}
+
+.ds-banner {
+  background: rgba(30, 58, 95, 0.45);
+  border: 1px solid #3b82f6;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  color: #c5d9f0;
+  font-size: 0.88rem;
+  margin-bottom: 1.25rem;
+}
+
+.ds-severity-row {
+  margin-bottom: 0.65rem;
+}
+
+.ds-severity-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #9aa8bc;
+  margin-bottom: 0.25rem;
+}
+
+.ds-severity-bar-bg {
+  height: 8px;
+  background: #1c252e;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ds-severity-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.ds-footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #2d3a4f;
+  font-size: 0.75rem;
+  color: #6b7a90;
+}
+
+.ds-hitl-badge {
+  display: block;
+  text-align: center;
+  margin: 0.75rem 0;
+  padding: 0.5rem 1rem;
+  border: 1px solid #c62828;
+  border-radius: 8px;
+  color: #ef9a9a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ds-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: #9aa8bc;
+  margin-bottom: 0.35rem;
+}
+
+.ds-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.ds-scene-id {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.82rem;
+  color: #e8edf4;
+}
+
+.ds-priority-high { color: #ff7043; font-weight: 700; }
+.ds-priority-mid { color: #ffc107; font-weight: 600; }
+.ds-priority-low { color: #9aa8bc; }
+
+div[data-testid="stDataFrame"] {
+  border: 1px solid #2d3a4f;
+  border-radius: 12px;
+  overflow: hidden;
+}
