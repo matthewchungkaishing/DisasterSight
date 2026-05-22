@@ -1,0 +1,62 @@
+[
+  {
+    "scene_id": "SCN-8821-A",
+    "disaster_name": "Maui Wildfires",
+    "split": "test",
+    "total_buildings": 198,
+    "class_counts": {"no_damage": 12, "minor_damage": 18, "major_damage": 42, "destroyed": 126},
+    "destroyed_share": 0.636,
+    "major_damage_share": 0.212,
+    "damage_density": 0.939,
+    "priority_score": 98.4,
+    "review_flag_count": 3
+  },
+  {
+    "scene_id": "pinery-bushfire_00000000",
+    "disaster_name": "Pinery Bushfire",
+    "split": "test",
+    "total_buildings": 142,
+    "class_counts": {"no_damage": 14, "minor_damage": 21, "major_damage": 43, "destroyed": 64},
+    "destroyed_share": 0.451,
+    "major_damage_share": 0.303,
+    "damage_density": 0.901,
+    "priority_score": 84.0,
+    "review_flag_count": 12
+  },
+  {
+    "scene_id": "SCN-7492-B",
+    "disaster_name": "Morocco Earthquake",
+    "split": "val",
+    "total_buildings": 256,
+    "class_counts": {"no_damage": 80, "minor_damage": 62, "major_damage": 78, "destroyed": 36},
+    "destroyed_share": 0.141,
+    "major_damage_share": 0.305,
+    "damage_density": 0.688,
+    "priority_score": 87.1,
+    "review_flag_count": 0
+  },
+  {
+    "scene_id": "SCN-9104-X",
+    "disaster_name": "Libya Floods",
+    "split": "test",
+    "total_buildings": 175,
+    "class_counts": {"no_damage": 22, "minor_damage": 35, "major_damage": 58, "destroyed": 60},
+    "destroyed_share": 0.343,
+    "major_damage_share": 0.331,
+    "damage_density": 0.874,
+    "priority_score": 84.5,
+    "review_flag_count": 2
+  },
+  {
+    "scene_id": "SCN-1102-C",
+    "disaster_name": "Turkey Earthquake",
+    "split": "val",
+    "total_buildings": 120,
+    "class_counts": {"no_damage": 45, "minor_damage": 30, "major_damage": 28, "destroyed": 17},
+    "destroyed_share": 0.142,
+    "major_damage_share": 0.233,
+    "damage_density": 0.625,
+    "priority_score": 72.3,
+    "review_flag_count": 0
+  }
+]

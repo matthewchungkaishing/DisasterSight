@@ -1,0 +1,47 @@
+[
+  {
+    "scene_id": "pinery-bushfire_00000000",
+    "disaster_name": "Pinery Bushfire",
+    "disaster_type": "wildfire",
+    "pre_image_path": "data/raw/xbd/tier3/pinery-bushfire/images/pinery-bushfire_00000000_pre_disaster.png",
+    "post_image_path": "data/raw/xbd/tier3/pinery-bushfire/images/pinery-bushfire_00000000_post_disaster.png",
+    "label_json_path": "data/raw/xbd/tier3/pinery-bushfire/labels/pinery-bushfire_00000000_post_disaster.json",
+    "split": "test"
+  },
+  {
+    "scene_id": "SCN-8821-A",
+    "disaster_name": "Maui Wildfires",
+    "disaster_type": "wildfire",
+    "pre_image_path": "",
+    "post_image_path": "",
+    "label_json_path": "",
+    "split": "test"
+  },
+  {
+    "scene_id": "SCN-7492-B",
+    "disaster_name": "Morocco Earthquake",
+    "disaster_type": "earthquake",
+    "pre_image_path": "",
+    "post_image_path": "",
+    "label_json_path": "",
+    "split": "val"
+  },
+  {
+    "scene_id": "SCN-9104-X",
+    "disaster_name": "Libya Floods",
+    "disaster_type": "flood",
+    "pre_image_path": "",
+    "post_image_path": "",
+    "label_json_path": "",
+    "split": "test"
+  },
+  {
+    "scene_id": "SCN-1102-C",
+    "disaster_name": "Turkey Earthquake",
+    "disaster_type": "earthquake",
+    "pre_image_path": "",
+    "post_image_path": "",
+    "label_json_path": "",
+    "split": "val"
+  }
+]
