@@ -1,0 +1,17 @@
+{
+  "macro_f1": 0.0,
+  "macro_f1_delta": 0.0,
+  "precision_macro": 0.0,
+  "precision_label": "N/A",
+  "recall_macro": 0.0,
+  "recall_delta": 0.0,
+  "held_out_events": 0,
+  "confusion_matrix": [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0]
+  ],
+  "confusion_labels": ["no_damage", "minor_damage", "major_damage", "destroyed"],
+  "validation_patches": 0
+}

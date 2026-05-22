@@ -1,0 +1,15 @@
+---
+description: Data pipeline conventions for xBD processing
+globs: src/data/**/*.py
+alwaysApply: false
+---
+
+# Data Pipeline Rules
+
+- Pipeline order: `build_scene_manifest` -> `build_crop_manifest` -> `validate_crop_manifest` -> `build_crop_qa_preview`.
+- Scene splitting must be **event-aware**: all scenes from the same disaster event go to one split.
+- Damage labels must be normalised via `xbd.normalise_label()`. Canonical names: `no_damage`, `minor_damage`, `major_damage`, `destroyed`.
+- Manifest paths must be repository-relative, not absolute. Use `project_relative_path()`.
+- Building records must follow the contract in `docs/interface_contracts.md`.
+- Do not bypass the validation step — run `validate_crop_manifest` before training.
+- Manifest CSV I/O should use `csv.DictReader`/`csv.DictWriter` with UTF-8 encoding.

@@ -1,0 +1,14 @@
+---
+description: Guard rails for editing config.yaml
+globs: config.yaml
+alwaysApply: false
+---
+
+# Config Safety
+
+- `damage_classes` must stay `[no_damage, minor_damage, major_damage, destroyed]` unless the user explicitly requests a change. Changing this breaks the model, dataset, evaluation, and dashboard.
+- `train_split + val_split + test_split` must sum to 1.0.
+- `image_size`, `crop_padding_pixels`, `min_building_area_pixels` must be positive integers.
+- `subset_strategy` must remain `event_aware` to prevent data leakage.
+- When adding new config keys, update `docs/interface_contracts.md` if they affect module boundaries.
+- Paths must be relative to the project root, never absolute.

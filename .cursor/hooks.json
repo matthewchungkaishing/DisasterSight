@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "python .cursor/hooks/lint-fix.py",
+        "matcher": "Write",
+        "timeout": 15
+      }
+    ]
+  }
+}

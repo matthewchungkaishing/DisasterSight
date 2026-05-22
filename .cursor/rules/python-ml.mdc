@@ -1,0 +1,16 @@
+---
+description: Python ML model code conventions for DisasterSight
+globs: src/models/**/*.py
+alwaysApply: false
+---
+
+# ML Model Conventions
+
+- The classifier uses 6-channel paired input (pre + post concatenated). Do not change the channel architecture without updating `PAIRED_IN_CHANNELS` and the pretrained weight init.
+- All hyperparameters must be config-driven via `config.yaml` under `training:`. Use CLI args to override, never hardcode.
+- Class imbalance is handled by `class_weight_strategy` — do not add new strategies without documenting in config.yaml.
+- Checkpoints must save: `model_state_dict`, `optimizer_state_dict`, `scheduler_state_dict`, `val_macro_f1`, `config`, `class_names`.
+- Best model selection is by highest validation macro F1.
+- Labels come from `src.common.constants.DAMAGE_CLASSES` — never define them locally.
+- Evaluation must always include macro F1, per-class F1, and confusion matrix.
+- Do not add segmentation, attention, or multi-scale unless explicitly requested.

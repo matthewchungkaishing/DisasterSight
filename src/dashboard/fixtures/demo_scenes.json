@@ -1,0 +1,11 @@
+[
+  {
+    "scene_id": "pinery-bushfire_00000000",
+    "disaster_name": "Pinery Bushfire",
+    "disaster_type": "wildfire",
+    "pre_image_path": "data/raw/xbd/tier3/pinery-bushfire/images/pinery-bushfire_00000000_pre_disaster.png",
+    "post_image_path": "data/raw/xbd/tier3/pinery-bushfire/images/pinery-bushfire_00000000_post_disaster.png",
+    "label_json_path": "data/raw/xbd/tier3/pinery-bushfire/labels/pinery-bushfire_00000000_post_disaster.json",
+    "split": "test"
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "scene_id": "pinery-bushfire_00000000",
+    "disaster_name": "Pinery Bushfire",
+    "split": "test",
+    "total_buildings": 142,
+    "class_counts": {"no_damage": 14, "minor_damage": 21, "major_damage": 43, "destroyed": 64},
+    "destroyed_share": 0.451,
+    "major_damage_share": 0.303,
+    "damage_density": 0.901,
+    "priority_score": 84.0,
+    "review_flag_count": 12
+  }
+]

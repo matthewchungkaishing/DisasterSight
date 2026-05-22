@@ -1,0 +1,13 @@
+---
+description: Cached inference and dashboard output contracts
+globs: src/inference/**/*.py
+alwaysApply: false
+---
+
+# Cached Inference Rules
+
+- Generate stable CSV artifacts under `paths.predictions_dir`; the dashboard should not run model inference live.
+- Building predictions must include `scene_id`, `building_id`, predicted label, confidence, review flag, class probabilities, polygon, bbox, and crop paths.
+- Scene summaries must include severity counts, priority score, mean confidence, and review flag count.
+- Priority score is a demo decision-support signal only. Do not describe it as emergency dispatch logic.
+- Keep this package separate from Streamlit UI code and model training code.
