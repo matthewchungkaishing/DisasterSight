@@ -1,20 +1,18 @@
+"""Dashboard page — scene-level triage overview."""
+
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[3]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from src.dashboard.components import building_table, metric_card, scene_explorer, severity_bars, shell, sidebar
-from src.dashboard.data_loaders import (
-    get_scene_by_id,
-    get_zone_summary_for_scene,
-    load_predictions,
-)
 import streamlit as st
 
+from src.dashboard.components import (
+    building_table,
+    metric_card,
+    scene_explorer,
+    severity_bars,
+    shell,
+    sidebar,
+)
+from src.dashboard.data_loaders import get_scene_by_id, get_zone_summary_for_scene, load_predictions
 from src.dashboard.navigation import set_active_page
 
 set_active_page("dashboard")
@@ -24,10 +22,10 @@ scene_id = sidebar.render_sidebar_extras()
 scene = get_scene_by_id(scene_id) or {}
 summary = get_zone_summary_for_scene(scene_id)
 predictions = load_predictions(scene_id)
-class_counts = summary.get("class_counts", {})
-total = summary.get("total_buildings", 0)
-review_count = summary.get("review_flag_count", 0)
-priority = summary.get("priority_score", 0)
+class_counts: dict[str, int] = summary.get("class_counts", {})
+total: int = summary.get("total_buildings", 0)
+review_count: int = summary.get("review_flag_count", 0)
+priority: float = summary.get("priority_score", 0)
 disaster_type = scene.get("disaster_type", "wildfire").title()
 
 avg_conf = 0.0

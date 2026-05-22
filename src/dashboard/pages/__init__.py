@@ -1,1 +1,1 @@
-"""Streamlit multipage views."""
+"""Streamlit multi-page scripts (loaded by ``st.navigation``)."""

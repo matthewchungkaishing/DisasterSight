@@ -85,6 +85,16 @@ Cached building-level predictions must contain:
 | `needs_review` | `bool` | True if below review threshold |
 | `class_probabilities` | `dict[str, float]` | Per-class probabilities |
 
+Current cache artifact:
+
+```text
+artifacts/predictions/building_predictions_{split}.csv
+```
+
+The CSV stores `class_probabilities` as compact JSON and carries overlay fields
+from the crop manifest: `polygon_xy`, `bbox_x1`, `bbox_y1`, `bbox_x2`,
+`bbox_y2`, `pre_crop_path`, and `post_crop_path`.
+
 ## 5. Zone Summary Contract
 
 The dashboard summary layer should be able to compute or load:
@@ -106,16 +116,34 @@ Priority score formula for the MVP:
 100 * (0.50 * destroyed_share + 0.30 * major_damage_share + 0.20 * damage_density)
 ```
 
+Current cache artifact:
+
+```text
+artifacts/predictions/scene_summaries_{split}.csv
+```
+
 ## 6. Dashboard Contract
 
-The Streamlit app should assume it can load:
+The Streamlit app loads data through ``src/dashboard/artifact_resolver.py``,
+which resolves artifacts from configured paths with fixture fallback.
 
-- A list of available scenes
-- Scene-level image paths
-- Building polygons or bounding boxes for overlays
-- Cached building predictions
-- Aggregated scene summary metrics
-- Evaluation artifacts such as confusion matrix figures
+Data sources (in resolution order):
+
+| Artifact | Primary Path | Fallback |
+|---|---|---|
+| Scene manifest | `data/processed/scenes.json` | `src/dashboard/fixtures/demo_scenes.json` |
+| Zone summaries | `artifacts/zone_summaries.json` | `src/dashboard/fixtures/demo_zone_summaries.json` |
+| Predictions | `artifacts/predictions/{scene_id}.json` | `src/dashboard/fixtures/demo_predictions.jsonl` |
+| Metrics | `artifacts/metrics.json` | `src/dashboard/fixtures/demo_metrics.json` |
+| Confusion matrix | `artifacts/figures/confusion_matrix.png` | Generated heatmap |
+| Failure cases | `artifacts/figures/failures/*.png` | Placeholder cards |
+
+Architecture layers:
+
+- ``artifact_resolver.py`` — pure file resolution and I/O (no Streamlit dependency, fully testable)
+- ``data_loaders.py`` — thin Streamlit-cached facade with fixture-fallback warnings
+- ``components/`` — reusable UI components with ``render`` entry-points
+- ``pages/`` — multi-page scripts loaded by ``st.navigation``
 
 The dashboard should not assume:
 

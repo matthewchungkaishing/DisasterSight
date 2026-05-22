@@ -1,8 +1,14 @@
+"""Label normalization and display helpers for the dashboard.
+
+Maps xBD hyphenated labels and other variants to the canonical
+underscore form defined in :mod:`src.common.constants`.
+"""
+
 from __future__ import annotations
 
 from src.common.constants import DAMAGE_CLASSES, REVIEW_REQUIRED_LABEL
 
-_XBD_TO_CONTRACT = {
+_XBD_TO_CONTRACT: dict[str, str] = {
     "no-damage": "no_damage",
     "minor-damage": "minor_damage",
     "major-damage": "major_damage",
@@ -11,17 +17,17 @@ _XBD_TO_CONTRACT = {
     "unclassified": "unclassified",
 }
 
-_CONTRACT_TO_DISPLAY = {
+_CONTRACT_TO_DISPLAY: dict[str, str] = {
     "no_damage": "NO DAMAGE",
     "minor_damage": "MINOR",
     "major_damage": "MAJOR",
     "destroyed": "DESTROYED",
-    "review_required": "REVIEW REQUIRED",
+    REVIEW_REQUIRED_LABEL: "REVIEW REQUIRED",
 }
 
 
 def normalize_label(label: str | None) -> str:
-    """Map xBD hyphen labels or variants to contract underscore form."""
+    """Map xBD hyphenated labels or free-text variants to contract form."""
     if not label:
         return "unknown"
     cleaned = label.strip().lower().replace(" ", "-")
@@ -40,10 +46,8 @@ def display_label(label: str) -> str:
 
 
 def badge_class(label: str) -> str:
-    """CSS class suffix for damage badge."""
+    """CSS class suffix for a damage badge."""
     key = normalize_label(label)
-    if key == "review_required" or key == REVIEW_REQUIRED_LABEL:
-        return "review_required"
     if key in DAMAGE_CLASSES:
         return key
-    return "review_required"
+    return REVIEW_REQUIRED_LABEL

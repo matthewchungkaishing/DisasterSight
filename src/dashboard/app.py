@@ -1,6 +1,7 @@
-"""DisasterSight Streamlit dashboard entrypoint.
+"""DisasterSight Streamlit dashboard entry-point.
 
-Run from repository root:
+Run from the repository root::
+
     streamlit run src/dashboard/app.py
 """
 
@@ -9,13 +10,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import streamlit as st
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+import streamlit as st  # noqa: E402
 
-from src.dashboard.styles import inject_theme
+from src.dashboard.styles import inject_theme  # noqa: E402
 
 st.set_page_config(
     page_title="DisasterSight",
@@ -26,26 +27,25 @@ st.set_page_config(
 
 inject_theme()
 
-DASHBOARD_DIR = Path(__file__).parent
-
-pages = [
+_DASHBOARD_DIR = Path(__file__).parent
+_PAGES = [
     st.Page(
-        DASHBOARD_DIR / "pages/1_Dashboard.py",
+        _DASHBOARD_DIR / "pages/1_Dashboard.py",
         title="Dashboard",
         icon=":material/dashboard:",
         default=True,
     ),
     st.Page(
-        DASHBOARD_DIR / "pages/2_Map_Explorer.py",
+        _DASHBOARD_DIR / "pages/2_Map_Explorer.py",
         title="Map Explorer",
         icon=":material/map:",
     ),
     st.Page(
-        DASHBOARD_DIR / "pages/3_Analytics.py",
+        _DASHBOARD_DIR / "pages/3_Analytics.py",
         title="Analytics",
         icon=":material/analytics:",
     ),
 ]
 
-pg = st.navigation(pages, position="hidden")
+pg = st.navigation(_PAGES, position="hidden")
 pg.run()

@@ -28,13 +28,13 @@ Implemented:
 - Paired pre/post crop extraction with crop manifest output.
 - Crop manifest validation and QA contact-sheet generation.
 - Focused unit tests for parsing, manifests, crop extraction, and manifest validation.
+- Baseline paired-crop classifier training and evaluation scripts.
+- Cached building prediction and scene-summary generation for dashboard use.
 
-Next:
-
-- Baseline paired-image classifier.
-- Macro F1 and confusion matrix evaluation.
-- Cached prediction generation.
-- Streamlit dashboard integration.
+- Streamlit dashboard with three pages (Dashboard, Map Explorer, Analytics).
+- Pure artifact-resolver layer decoupled from Streamlit for testability.
+- Demo fixtures for offline development when artifacts are not yet generated.
+- Dashboard unit tests for labels, priority, overlays, and artifact resolution.
 
 ## Scope Control
 
@@ -63,9 +63,12 @@ Explicitly out of scope unless requested:
 ```text
 DisasterSight/
   config.yaml
+  .streamlit/config.toml
   data/
     README.md
   docs/
+    artifacts_integration.md
+    design_system.md
     foundation_guardrails.md
     implementation_plan.md
     interface_contracts.md
@@ -78,8 +81,28 @@ DisasterSight/
       build_scene_manifest.py
       crop_extraction.py
       xbd.py
+    dashboard/
+      app.py                  # Streamlit entry-point
+      artifact_resolver.py    # Pure I/O, no Streamlit dependency
+      config.py               # Config accessors
+      data_loaders.py         # Streamlit-cached facade
+      labels.py               # Label normalization
+      navigation.py           # Page navigation
+      overlays.py             # Image overlay drawing
+      priority.py             # Priority score computation
+      styles.py               # Theme injection
+      components/             # Reusable UI components
+      fixtures/               # Demo data for offline dev
+      pages/                  # Multi-page scripts
+    inference/
+      generate_predictions.py
+    models/
+      train.py
+      evaluate.py
   tests/
     test_xbd.py
+    test_dashboard.py
+    test_inference.py
   README.md
   requirements.txt
 ```
@@ -152,6 +175,28 @@ Summarise wildfire label coverage:
 ```powershell
 python -m src.data.summarise_wildfire_labels
 ```
+
+Train, evaluate, then cache dashboard-ready predictions:
+
+```powershell
+python -m src.models.train
+python -m src.models.evaluate --checkpoint artifacts/checkpoints/best_classifier.pt --save-figure
+python -m src.inference.generate_predictions --checkpoint artifacts/checkpoints/best_classifier.pt
+```
+
+The prediction cache writes CSV artifacts under `artifacts/predictions/`:
+
+- `building_predictions_test.csv`: building-level labels, confidence, class probabilities, overlay geometry, and review flags.
+- `scene_summaries_test.csv`: severity counts, priority score, mean confidence, and review flag counts.
+
+Launch the dashboard:
+
+```powershell
+streamlit run src/dashboard/app.py
+```
+
+The dashboard loads cached artifacts from `artifacts/` and `data/processed/`.
+When artifacts are not yet generated, demo fixtures provide placeholder data.
 
 ## Quality Checks
 

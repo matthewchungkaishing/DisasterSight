@@ -1,16 +1,11 @@
+"""Map Explorer page — zone priority ranking and review queue."""
+
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[3]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+import streamlit as st
 
 from src.dashboard.components import priority_table, review_queue, shell, sidebar
 from src.dashboard.data_loaders import load_zone_summaries
-import streamlit as st
-
 from src.dashboard.navigation import focus_scene, set_active_page
 from src.dashboard.priority import rationale_text
 
@@ -42,7 +37,10 @@ with ctrl1:
         label_visibility="collapsed",
     )
 with ctrl2:
-    sort_by = st.selectbox("Sort: Priority Score", ["Priority Score", "Review count", "Destroyed %"])
+    sort_by = st.selectbox(
+        "Sort: Priority Score",
+        ["Priority Score", "Review count", "Destroyed %"],
+    )
 with ctrl3:
     page = st.number_input("Page", min_value=0, value=0, step=1, label_visibility="collapsed")
 
@@ -54,9 +52,13 @@ if summaries:
     c1, c2 = st.columns(2)
     with c1:
         st.markdown('<div class="ds-panel">', unsafe_allow_html=True)
-        st.markdown('<h3 class="ds-panel-head">⚠ Highest Priority Rationale</h3>', unsafe_allow_html=True)
         st.markdown(
-            f'<div class="ds-rationale-box">{rationale_text(top, top.get("disaster_name", ""))}</div>',
+            '<h3 class="ds-panel-head">⚠ Highest Priority Rationale</h3>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="ds-rationale-box">'
+            f"{rationale_text(top, top.get('disaster_name', ''))}</div>",
             unsafe_allow_html=True,
         )
         if st.button("View Deep Analysis", key="deep_analysis", type="primary"):
@@ -65,7 +67,10 @@ if summaries:
     with c2:
         st.markdown('<div class="ds-panel">', unsafe_allow_html=True)
         pending = sum(1 for s in summaries if s.get("review_flag_count", 0) > 0)
-        st.markdown(f'<h3 class="ds-panel-head">📋 Review Queue ({pending} pending)</h3>', unsafe_allow_html=True)
+        st.markdown(
+            f'<h3 class="ds-panel-head">📋 Review Queue ({pending} pending)</h3>',
+            unsafe_allow_html=True,
+        )
         review_queue.render(summaries)
         st.markdown("</div>", unsafe_allow_html=True)
 

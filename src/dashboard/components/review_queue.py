@@ -1,14 +1,22 @@
+"""Review queue component — scenes flagged for human review."""
+
 from __future__ import annotations
+
+from typing import Any
 
 import streamlit as st
 
 from src.dashboard.navigation import focus_scene
 
 
-def render(summaries: list[dict]) -> None:
+def render(summaries: list[dict[str, Any]]) -> None:
+    """List scenes with review-flagged buildings."""
     pending = [s for s in summaries if s.get("review_flag_count", 0) > 0]
     if not pending:
-        st.markdown('<p style="color:#c2c6d6;font-size:0.88rem">No scenes flagged for review.</p>', unsafe_allow_html=True)
+        st.markdown(
+            '<p style="color:#c2c6d6;font-size:0.88rem">No scenes flagged for review.</p>',
+            unsafe_allow_html=True,
+        )
         return
 
     for item in pending[:4]:

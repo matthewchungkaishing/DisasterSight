@@ -55,6 +55,10 @@ def draw_demo_overlays(
         x1 = x0 + cell_w - 16
         y1 = y0 + cell_h - 16
         alpha = int(255 * opacity)
-        draw.rectangle([x0, y0, x1, y1], fill=rgb + (alpha,), outline=rgb + (255,))
+        draw.rectangle(
+            [x0, y0, x1, y1],
+            fill=(*rgb, alpha),
+            outline=(*rgb, 255),
+        )
     base = image.convert("RGBA")
     return Image.alpha_composite(base, overlay).convert("RGB")

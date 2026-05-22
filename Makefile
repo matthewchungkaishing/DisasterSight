@@ -1,4 +1,4 @@
-.PHONY: lint lint-fix typecheck test compile-check quality train evaluate validate-crops qa-preview pipeline help
+.PHONY: lint lint-fix typecheck test compile-check quality train evaluate predictions validate-crops qa-preview pipeline dashboard help
 
 PYTHON ?= python
 
@@ -46,6 +46,16 @@ train: ## Train the baseline damage classifier
 
 evaluate: ## Evaluate the trained classifier (requires CHECKPOINT arg)
 	$(PYTHON) -m src.models.evaluate --checkpoint $(CHECKPOINT) --save-figure
+
+predictions: ## Cache dashboard predictions (requires CHECKPOINT arg)
+	$(PYTHON) -m src.inference.generate_predictions --checkpoint $(CHECKPOINT)
+
+# ---------------------------------------------------------------------------
+# Dashboard
+# ---------------------------------------------------------------------------
+
+dashboard: ## Launch the Streamlit dashboard
+	streamlit run src/dashboard/app.py
 
 # ---------------------------------------------------------------------------
 # Full pipeline

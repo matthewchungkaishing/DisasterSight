@@ -1,10 +1,12 @@
+"""Styled panel wrapper component."""
+
 from __future__ import annotations
 
 import streamlit as st
 
 
 def open_panel(title: str = "", subtitle: str = "", extra_class: str = "") -> None:
-    """Open a styled panel; pair with close_panel() after content."""
+    """Open a styled panel div. Pair with :func:`close_panel` after content."""
     title_html = f'<div class="ds-panel-title">{title}</div>' if title else ""
     sub_html = f'<div class="ds-panel-subtitle">{subtitle}</div>' if subtitle else ""
     st.markdown(
@@ -14,4 +16,5 @@ def open_panel(title: str = "", subtitle: str = "", extra_class: str = "") -> No
 
 
 def close_panel() -> None:
+    """Close a panel opened by :func:`open_panel`."""
     st.markdown("</div>", unsafe_allow_html=True)

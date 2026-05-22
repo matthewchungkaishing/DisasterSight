@@ -51,12 +51,13 @@ class CropDataset(Dataset):
 
     def __init__(
         self,
-        manifest_path: Path,
+        manifest_path: Path | None,
         split: str,
         image_size: int = 224,
         *,
         augment: bool = False,
         project_root: Path | None = None,
+        records: list[dict[str, str]] | None = None,
     ) -> None:
         from src.common.paths import PROJECT_ROOT
 
@@ -71,7 +72,12 @@ class CropDataset(Dataset):
                 contrast=0.2,
                 saturation=0.1,
             )
-        self._records = self._load_records(manifest_path, split)
+        if records is None:
+            if manifest_path is None:
+                raise ValueError("manifest_path is required when records are not provided.")
+            self._records = self._load_records(manifest_path, split)
+        else:
+            self._records = list(records)
         self.label_indices: list[int] = [CLASS_TO_INDEX[r["damage_label"]] for r in self._records]
 
     def __len__(self) -> int:

@@ -1,3 +1,9 @@
+"""Priority score computation and zone-summary builder.
+
+Implements the MVP priority formula documented in
+``docs/interface_contracts.md`` (section 5).
+"""
+
 from __future__ import annotations
 
 from src.common.constants import DAMAGE_CLASSES
@@ -5,7 +11,7 @@ from src.dashboard.config import get_priority_weights
 
 
 def compute_shares(class_counts: dict[str, int], total: int) -> dict[str, float]:
-    """Compute destroyed share, major share, and damage density."""
+    """Compute destroyed share, major-damage share, and damage density."""
     if total <= 0:
         return {"destroyed_share": 0.0, "major_damage_share": 0.0, "damage_density": 0.0}
     destroyed = class_counts.get("destroyed", 0)
@@ -24,7 +30,7 @@ def compute_priority_score(
     damage_density: float,
     weights: dict[str, float] | None = None,
 ) -> float:
-    """Demo priority score per interface contract."""
+    """Demo priority score per the interface contract formula."""
     w = weights or get_priority_weights()
     score = (
         w["destroyed"] * destroyed_share
@@ -34,8 +40,12 @@ def compute_priority_score(
     return round(100 * score, 1)
 
 
-def build_zone_summary(scene_id: str, class_counts: dict[str, int], review_flag_count: int) -> dict:
-    """Build zone summary record for dashboard."""
+def build_zone_summary(
+    scene_id: str,
+    class_counts: dict[str, int],
+    review_flag_count: int,
+) -> dict[str, object]:
+    """Build a zone-summary record conforming to the Zone Summary Contract."""
     total = sum(class_counts.values())
     shares = compute_shares(class_counts, total)
     priority = compute_priority_score(
@@ -56,6 +66,7 @@ def build_zone_summary(scene_id: str, class_counts: dict[str, int], review_flag_
 
 
 def priority_css_class(score: float) -> str:
+    """Return a CSS helper class for the given priority score."""
     if score >= 80:
         return "ds-priority-high"
     if score >= 50:
@@ -63,12 +74,12 @@ def priority_css_class(score: float) -> str:
     return "ds-priority-low"
 
 
-def rationale_text(summary: dict, disaster_name: str) -> str:
+def rationale_text(summary: dict[str, object], disaster_name: str) -> str:
     """Generate highest-priority rationale copy for Map Explorer."""
     sid = summary.get("scene_id", "")
     score = summary.get("priority_score", 0)
-    dest = summary.get("destroyed_share", 0) * 100
-    major = summary.get("major_damage_share", 0) * 100
+    dest = float(str(summary.get("destroyed_share", 0))) * 100
+    major = float(str(summary.get("major_damage_share", 0))) * 100
     return (
         f"Score elevated to **{score}** for scene `{sid}` ({disaster_name}) due to "
         f"**{dest:.0f}%** destroyed and **{major:.0f}%** major-damage building share "

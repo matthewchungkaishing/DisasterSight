@@ -24,7 +24,7 @@ def set_active_page(page_id: str) -> None:
 
 
 def get_active_page() -> str:
-    return st.session_state.get("ds_active_page", "dashboard")
+    return str(st.session_state.get("ds_active_page", "dashboard"))
 
 
 def switch_to(page_id: str) -> None:

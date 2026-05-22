@@ -88,9 +88,12 @@ Success criteria:
 
 ## Phase 4: Cached Inference Outputs
 
+Status: complete.
+
 Deliverables:
-- Prediction generation script for demo scenes
-- Zone/building-level cached outputs
+- Prediction generation script for demo scenes (`src/inference/generate_predictions.py`)
+- Building-level cached outputs (`artifacts/predictions/building_predictions_{split}.csv`)
+- Scene-level summary outputs (`artifacts/predictions/scene_summaries_{split}.csv`)
 - Review-required flag logic
 - Priority score computation
 
@@ -100,18 +103,33 @@ Success criteria:
 
 ## Phase 5: Streamlit Dashboard
 
+Status: complete.
+
+Architecture:
+- Pure artifact resolution layer (`artifact_resolver.py`) decoupled from Streamlit
+- Thin Streamlit-cached facade (`data_loaders.py`)
+- Reusable UI components under `src/dashboard/components/`
+- Multi-page navigation via `st.navigation`
+- Custom dark theme with Material Design icons
+
 Deliverables:
-- Scene selector
-- Pre/post image viewer
-- Damage overlay toggle
-- Severity counts
-- Priority score panel
-- Confidence and review flags
-- Evaluation panel with confusion matrix and limitations
+- Scene selector with sidebar navigation
+- Pre/post image viewer with local and remote support
+- Damage overlay toggle with configurable opacity
+- Severity breakdown bars
+- Priority score panel with zone summaries
+- Confidence and review flags with building-level table
+- Map Explorer page with priority ranking and review queue
+- Analytics page with confusion matrix and known limitations
+- Responsible-AI notices on every page
+- CSV export for scene reports
+- Demo fixtures for offline development
+- Unit tests for all pure-logic modules
 
 Success criteria:
 - The main demo flow is understandable in under two minutes.
 - The app clearly presents responsible-AI limitations.
+- Pure logic is testable without a running Streamlit server.
 
 ## Non-Goals For This MVP
 
