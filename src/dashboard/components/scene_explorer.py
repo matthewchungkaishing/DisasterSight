@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-import streamlit as st
-
-from src.dashboard.artifact_resolver import scene_image_sources
+from src.dashboard.components.image_viewer import ImagePane, image_to_data_uri, render_scene_viewer
+from src.dashboard.components.scene_viewer_layout import compute_scene_viewer_layout
+from src.dashboard.config import get_scene_viewer_layout_settings
+from src.dashboard.data_loaders import get_scene_image_paths
 from src.dashboard.overlays import draw_prediction_overlays, load_display_image
-from src.dashboard.styles import icon
 
 
 def render(
@@ -20,71 +20,40 @@ def render(
     overlay_opacity: float,
 ) -> None:
     """Render the hero scene explorer with pre/post imagery."""
-    pre_url, post_url, pre_path, post_path = scene_image_sources(scene)
-
-    if pre_url and post_url:
-        _render_remote(pre_url, post_url, disaster_type, confidence_pct, show_overlays)
-        return
+    pre_path, post_path = get_scene_image_paths(scene)
 
     pre_img = load_display_image(pre_path, "Pre-disaster")
     post_img = load_display_image(post_path, "Post-disaster")
     if show_overlays:
         post_img = draw_prediction_overlays(post_img, predictions, opacity=overlay_opacity)
 
-    st.markdown(
-        f'<div class="ds-scene-card-head" style="background:#171c21;border:1px solid #2d3a4f;'
-        f"border-radius:0.5rem 0.5rem 0 0;padding:0.5rem 0.75rem;display:flex;"
-        f'justify-content:space-between;margin-bottom:0">'
-        f'<h3 style="margin:0;font-size:1rem;color:#dee3ea">Scene Explorer - {disaster_type}</h3>'
-        f'<span class="ds-confidence">Confidence: {confidence_pct:.0f}%</span></div>',
-        unsafe_allow_html=True,
+    image_width, image_height = pre_img.size
+    layout = compute_scene_viewer_layout(
+        image_width,
+        image_height,
+        **get_scene_viewer_layout_settings(),
     )
-    cols = st.columns(2, gap="small")
-    with cols[0]:
-        st.markdown(
-            '<span class="ds-img-chip" style="position:relative;display:inline-block;'
-            'margin-bottom:0.5rem">Pre-disaster</span>',
-            unsafe_allow_html=True,
-        )
-        st.image(pre_img, use_container_width=True)
-    with cols[1]:
-        st.markdown(
-            '<span class="ds-img-chip" style="position:relative;display:inline-block;'
-            'margin-bottom:0.5rem">Post-disaster (Inference)</span>',
-            unsafe_allow_html=True,
-        )
-        st.image(post_img, use_container_width=True)
-
-
-def _render_remote(
-    pre_url: str,
-    post_url: str,
-    disaster_type: str,
-    confidence_pct: float,
-    show_overlays: bool,
-) -> None:
-    """Remote-image variant using Stitch preview URLs."""
-    toolbar = (
-        f'<div class="ds-img-toolbar">'
-        f"<span>{icon('zoom_in', size=20)}</span>"
-        f"<span>{icon('zoom_out', size=20)}</span>"
-        f'<span class="ds-tb-div"></span>'
-        f"<span>{icon('visibility', size=20)}</span></div>"
+    post_label = "Post-disaster + damage overlay" if show_overlays else "Post-disaster"
+    render_scene_viewer(
+        f"Scene Explorer - {disaster_type}",
+        f"Mean confidence: {confidence_pct:.0f}%",
+        (
+            ImagePane(
+                key="pre",
+                label="Pre-disaster",
+                src=image_to_data_uri(pre_img),
+                alt="Pre-disaster satellite scene",
+                width=image_width,
+                height=image_height,
+            ),
+            ImagePane(
+                key="post",
+                label=post_label,
+                src=image_to_data_uri(post_img),
+                alt="Post-disaster satellite scene",
+                width=image_width,
+                height=image_height,
+            ),
+        ),
+        layout=layout,
     )
-    st.markdown(
-        f'<div class="ds-scene-card">'
-        f'<div class="ds-scene-card-head">'
-        f"<h3>Scene Explorer - {disaster_type}</h3>"
-        f'<span class="ds-confidence">Confidence: {confidence_pct:.0f}%</span></div>'
-        f'<div class="ds-scene-images">'
-        f'<div class="ds-scene-img-wrap pre">'
-        f'<img src="{pre_url}" alt="Pre-disaster"/>'
-        f'<span class="ds-img-chip">Pre-disaster</span></div>'
-        f'<div class="ds-scene-img-wrap post">'
-        f'<img src="{post_url}" alt="Post-disaster"/>'
-        f'<span class="ds-img-chip">Post-disaster (Inference)</span>'
-        f"{toolbar}</div></div></div>",
-        unsafe_allow_html=True,
-    )
-    if show_overlays:
-        st.caption("Damage overlays use demo polygons when viewing remote Stitch preview imagery.")

@@ -21,9 +21,13 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
-from sklearn.metrics import confusion_matrix, f1_score
 from torch.utils.data import DataLoader
 
+from src.common.classification_metrics import (
+    confusion_matrix_counts,
+    macro_scores,
+    per_class_precision_recall_f1,
+)
 from src.common.constants import DAMAGE_CLASSES
 from src.common.paths import ensure_project_dirs, load_config
 from src.models.classifier import PairedCropClassifier
@@ -32,7 +36,9 @@ from src.models.crop_dataset import (
     CropDataset,
     class_distribution_summary,
     compute_class_weights,
+    load_crop_records,
     make_weighted_sampler,
+    stratified_sample_records,
 )
 
 logging.basicConfig(
@@ -70,6 +76,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint-dir", default=None, help="Directory for saved checkpoints.")
     parser.add_argument("--max-epochs", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--image-size", type=int, default=None)
+    parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--learning-rate", type=float, default=None)
     parser.add_argument(
         "--class-weight-strategy",
@@ -79,6 +87,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--no-pretrained", action="store_true", help="Disable pretrained backbone.")
     parser.add_argument("--seed", type=int, default=None, help="Override random seed.")
+    parser.add_argument(
+        "--max-train-samples",
+        type=int,
+        default=None,
+        help="Class-aware cap for train rows. Intended for CPU smoke runs on real xBD crops.",
+    )
+    parser.add_argument(
+        "--max-val-samples",
+        type=int,
+        default=None,
+        help="Class-aware cap for validation rows. Intended for CPU smoke runs on real xBD crops.",
+    )
     return parser.parse_args()
 
 
@@ -130,15 +150,8 @@ def _run_epoch(
 
 
 def _macro_f1(preds: list[int], labels: list[int]) -> float:
-    return float(
-        f1_score(
-            labels,
-            preds,
-            average="macro",
-            zero_division=0,
-            labels=list(range(NUM_CLASSES)),
-        )
-    )
+    matrix = confusion_matrix_counts(labels, preds, num_classes=NUM_CLASSES)
+    return macro_scores(matrix)[2]
 
 
 def _log_metrics(
@@ -148,14 +161,9 @@ def _log_metrics(
     preds: list[int],
     labels: list[int],
 ) -> dict[str, float | str | int]:
-    macro = _macro_f1(preds, labels)
-    per_class = f1_score(
-        labels,
-        preds,
-        average=None,
-        zero_division=0,
-        labels=list(range(NUM_CLASSES)),
-    )
+    matrix = confusion_matrix_counts(labels, preds, num_classes=NUM_CLASSES)
+    macro = macro_scores(matrix)[2]
+    _precision, _recall, per_class = per_class_precision_recall_f1(matrix)
     per_class_str = "  ".join(f"{DAMAGE_CLASSES[i]}={per_class[i]:.3f}" for i in range(NUM_CLASSES))
     log.info(
         "%s  epoch %02d  loss=%.4f  macro_f1=%.4f  %s",
@@ -194,9 +202,7 @@ def train(args: argparse.Namespace) -> Path:
     log.info("Random seed: %d", seed)
 
     # Resolve paths
-    manifest_path = (
-        Path(args.manifest) if args.manifest else path_map["manifests_dir"] / "crop_manifest.csv"
-    )
+    manifest_path = _resolve_manifest_path(args.manifest, path_map["manifests_dir"])
     checkpoint_dir = (
         Path(args.checkpoint_dir) if args.checkpoint_dir else path_map["checkpoints_dir"]
     )
@@ -207,8 +213,12 @@ def train(args: argparse.Namespace) -> Path:
     batch_size: int = args.batch_size or int(training_cfg.get("batch_size", 16))
     learning_rate: float = args.learning_rate or float(training_cfg.get("learning_rate", 3e-4))
     patience: int = int(training_cfg.get("early_stopping_patience", 3))
-    image_size: int = int(dataset_cfg.get("image_size", 224))
-    num_workers: int = int(training_cfg.get("num_workers", 2))
+    image_size: int = args.image_size or int(dataset_cfg.get("image_size", 224))
+    num_workers: int = (
+        args.num_workers
+        if args.num_workers is not None
+        else int(training_cfg.get("num_workers", 2))
+    )
     strategy: str = args.class_weight_strategy or training_cfg.get(
         "class_weight_strategy", "loss_weight"
     )
@@ -225,17 +235,29 @@ def train(args: argparse.Namespace) -> Path:
     # ------------------------------------------------------------------
     # Datasets
     # ------------------------------------------------------------------
+    train_records = stratified_sample_records(
+        load_crop_records(manifest_path, "train"),
+        args.max_train_samples,
+        seed=seed,
+    )
+    val_records = stratified_sample_records(
+        load_crop_records(manifest_path, "val"),
+        args.max_val_samples,
+        seed=seed + 1,
+    )
     train_dataset = CropDataset(
-        manifest_path,
+        None,
         split="train",
         image_size=image_size,
         augment=True,
+        records=train_records,
     )
     val_dataset = CropDataset(
-        manifest_path,
+        None,
         split="val",
         image_size=image_size,
         augment=False,
+        records=val_records,
     )
 
     log.info(
@@ -404,16 +426,16 @@ def train(args: argparse.Namespace) -> Path:
         device,
         training=False,
     )
-    cm = confusion_matrix(final_labels, final_preds, labels=list(range(NUM_CLASSES)))
+    cm = confusion_matrix_counts(final_labels, final_preds, num_classes=NUM_CLASSES)
     log.info("Validation confusion matrix (rows=true, cols=predicted):")
     log.info("Classes: %s", " | ".join(DAMAGE_CLASSES))
     for i, cm_row in enumerate(cm):
-        log.info("  %s: %s", DAMAGE_CLASSES[i], cm_row.tolist())
+        log.info("  %s: %s", DAMAGE_CLASSES[i], cm_row)
 
     cm_path = checkpoint_dir / f"val_confusion_matrix_{run_id}.json"
     with cm_path.open("w", encoding="utf-8") as f:
         json.dump(
-            {"classes": list(DAMAGE_CLASSES), "matrix": cm.tolist()},
+            {"classes": list(DAMAGE_CLASSES), "matrix": cm},
             f,
             indent=2,
         )
@@ -424,6 +446,20 @@ def train(args: argparse.Namespace) -> Path:
         best_checkpoint_path,
     )
     return best_checkpoint_path
+
+
+def _resolve_manifest_path(cli_manifest: str | None, manifests_dir: Path) -> Path:
+    if cli_manifest:
+        return Path(cli_manifest)
+
+    candidates = [
+        manifests_dir / "crop_manifest.csv",
+        manifests_dir / "crop_manifest_small.csv",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
 
 
 def main() -> int:

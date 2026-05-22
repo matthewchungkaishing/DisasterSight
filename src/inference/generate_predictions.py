@@ -19,7 +19,7 @@ from src.inference.prediction_cache import (
     write_scene_summary_csv,
 )
 from src.models.classifier import PairedCropClassifier
-from src.models.crop_dataset import CropDataset
+from src.models.crop_dataset import CropDataset, stratified_sample_records
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,7 +53,19 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--scene-limit", type=int, default=None, help="Maximum number of scenes.")
     parser.add_argument(
+        "--max-samples",
+        type=int,
+        default=None,
+        help="Class-aware cap for cached prediction rows. Intended for CPU smoke runs.",
+    )
+    parser.add_argument(
         "--batch-size", type=int, default=None, help="Override inference batch size."
+    )
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=None,
+        help="Override DataLoader workers (default from config.yaml).",
     )
     parser.add_argument("--predictions-name", default=None, help="Output prediction CSV filename.")
     parser.add_argument("--summary-name", default=None, help="Output scene summary CSV filename.")
@@ -67,12 +79,14 @@ def generate_cached_predictions(args: argparse.Namespace) -> tuple[Path, Path]:
     inference_cfg = config.get("inference", {})
     priority_cfg = config.get("priority_score", {})
 
-    manifest_path = (
-        Path(args.manifest) if args.manifest else path_map["manifests_dir"] / "crop_manifest.csv"
-    )
+    manifest_path = _resolve_manifest_path(args.manifest, path_map["manifests_dir"])
     checkpoint_path = Path(args.checkpoint)
     batch_size = args.batch_size or int(training_cfg.get("batch_size", 16))
-    num_workers = int(training_cfg.get("num_workers", 2))
+    num_workers = (
+        args.num_workers
+        if args.num_workers is not None
+        else int(training_cfg.get("num_workers", 2))
+    )
     confidence_threshold = float(inference_cfg.get("confidence_threshold", 0.6))
 
     if not manifest_path.exists():
@@ -86,6 +100,11 @@ def generate_cached_predictions(args: argparse.Namespace) -> tuple[Path, Path]:
         split=args.split,
         scene_ids=set(args.scene_id) if args.scene_id else None,
         scene_limit=args.scene_limit,
+    )
+    selected_rows = stratified_sample_records(
+        selected_rows,
+        args.max_samples,
+        seed=int(config.get("project", {}).get("random_seed", 42)),
     )
     if not selected_rows:
         raise ValueError("No crop rows matched the requested split/scene filters.")
@@ -119,6 +138,20 @@ def generate_cached_predictions(args: argparse.Namespace) -> tuple[Path, Path]:
     log.info("Cached %d building predictions: %s", len(prediction_records), prediction_path)
     log.info("Cached %d scene summaries: %s", len(summaries), summary_path)
     return prediction_path, summary_path
+
+
+def _resolve_manifest_path(cli_manifest: str | None, manifests_dir: Path) -> Path:
+    if cli_manifest:
+        return Path(cli_manifest)
+
+    candidates = [
+        manifests_dir / "crop_manifest.csv",
+        manifests_dir / "crop_manifest_small.csv",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
 
 
 def _predict_probabilities(

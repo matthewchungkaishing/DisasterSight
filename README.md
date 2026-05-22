@@ -30,6 +30,7 @@ Implemented:
 - Focused unit tests for parsing, manifests, crop extraction, and manifest validation.
 - Baseline paired-crop classifier training and evaluation scripts.
 - Cached building prediction and scene-summary generation for dashboard use.
+- Real artifact resolution for scene manifests, cached predictions, metrics, and confusion matrices.
 
 - Streamlit dashboard with three pages (Dashboard, Map Explorer, Analytics).
 - Pure artifact-resolver layer decoupled from Streamlit for testability.
@@ -115,7 +116,6 @@ data/interim/
 data/processed/
 data/cache/
 artifacts/
-outputs/
 ```
 
 ## Setup
@@ -184,10 +184,20 @@ python -m src.models.evaluate --checkpoint artifacts/checkpoints/best_classifier
 python -m src.inference.generate_predictions --checkpoint artifacts/checkpoints/best_classifier.pt
 ```
 
+On CPU-only machines, use bounded class-aware samples for a quick real-data
+smoke run without falling back to fixtures:
+
+```powershell
+python -m src.models.train --manifest artifacts/manifests/crop_manifest_small.csv --max-epochs 1 --batch-size 16 --image-size 64 --num-workers 0 --max-train-samples 128 --max-val-samples 64 --no-pretrained
+python -m src.models.evaluate --checkpoint artifacts/checkpoints/best_classifier.pt --manifest artifacts/manifests/crop_manifest_small.csv --split test --batch-size 16 --num-workers 0 --max-samples 128 --save-figure
+python -m src.inference.generate_predictions --checkpoint artifacts/checkpoints/best_classifier.pt --manifest artifacts/manifests/crop_manifest_small.csv --split test --scene-limit 5 --batch-size 16 --num-workers 0
+```
+
 The prediction cache writes CSV artifacts under `artifacts/predictions/`:
 
 - `building_predictions_test.csv`: building-level labels, confidence, class probabilities, overlay geometry, and review flags.
 - `scene_summaries_test.csv`: severity counts, priority score, mean confidence, and review flag counts.
+- `artifacts/metrics.json` and `artifacts/figures/confusion_matrix_test.png`: dashboard evaluation metrics and confusion matrix.
 
 Launch the dashboard:
 

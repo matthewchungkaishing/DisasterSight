@@ -35,7 +35,6 @@ data/cache/
 
 # Artifacts
 artifacts/
-outputs/
 reports/
 checkpoints/
 predictions/

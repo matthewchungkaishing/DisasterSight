@@ -11,7 +11,8 @@ import functools
 from pathlib import Path
 from typing import Any
 
-from src.common.paths import PROJECT_ROOT, load_config, resolve_path
+from src.common.paths import load_config
+from src.common.priority_score import priority_weights_from_config
 
 DASHBOARD_ROOT = Path(__file__).parent
 
@@ -22,26 +23,15 @@ def get_dashboard_config() -> dict[str, Any]:
     return load_config()
 
 
-def get_paths() -> dict[str, Path]:
-    """Resolved artifact and data paths from config.yaml."""
-    cfg = get_dashboard_config()
-    return {key: resolve_path(val, PROJECT_ROOT) for key, val in cfg.get("paths", {}).items()}
-
-
 def get_priority_weights() -> dict[str, float]:
     """Priority-score component weights from config.yaml."""
-    ps = get_dashboard_config().get("priority_score", {})
-    return {
-        "destroyed": float(ps.get("destroyed_weight", 0.50)),
-        "major_damage": float(ps.get("major_damage_weight", 0.30)),
-        "damage_density": float(ps.get("damage_density_weight", 0.20)),
-    }
+    return priority_weights_from_config(get_dashboard_config().get("priority_score", {}))
 
 
-def get_inference_thresholds() -> dict[str, float]:
-    """Confidence and review thresholds from config.yaml."""
-    inf = get_dashboard_config().get("inference", {})
+def get_scene_viewer_layout_settings() -> dict[str, int]:
+    """Scene Explorer sizing knobs from config.yaml."""
+    dash = get_dashboard_config().get("dashboard", {})
     return {
-        "confidence": float(inf.get("confidence_threshold", 0.6)),
-        "review": float(inf.get("review_threshold", 0.5)),
+        "max_pane_height_px": int(dash.get("scene_explorer_max_pane_height_px", 420)),
+        "estimated_container_width_px": int(dash.get("scene_explorer_estimated_width_px", 960)),
     }

@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from src.dashboard.artifact_resolver import (
-    resolve_failure_case_images,
-)
+from src.dashboard.artifact_resolver import resolve_failure_case_images
 from src.dashboard.components import confusion_matrix, shell, sidebar
 from src.dashboard.components.confusion_matrix import confusion_matrix_csv
 from src.dashboard.data_loaders import load_metrics
@@ -27,21 +25,35 @@ shell.render_page_heading(
     "for the baseline paired-image classifier (xBD subset, cached inference).",
 )
 
-delta_f1 = metrics.get("macro_f1_delta", 0)
-delta_rec = metrics.get("recall_delta", 0)
+
+def _delta_html(value: float, *, positive_color: str = "#4caf50") -> str:
+    if abs(value) < 1e-9:
+        return ""
+    sign = "+" if value > 0 else ""
+    color = positive_color if value >= 0 else "#6b7a90"
+    return f'<span style="font-size:0.75rem;color:{color}">{sign}{value:.2f}</span>'
+
+
+delta_f1 = float(metrics.get("macro_f1_delta", 0))
+delta_rec = float(metrics.get("recall_delta", 0))
+eval_samples = int(metrics.get("validation_patches", 0))
+held_out_events = int(metrics.get("held_out_events", 0))
+fourth_card_label = "Held-out Events" if held_out_events > 0 else "Eval Samples"
+fourth_card_value = held_out_events if held_out_events > 0 else eval_samples
+
 metrics_html = (
     f'<div class="ds-metric-card"><span class="ds-metric-label">Macro F1</span>'
     f'<div class="ds-metric-value">{metrics.get("macro_f1", 0):.3f} '
-    f'<span style="font-size:0.75rem;color:#4caf50">+{delta_f1:.2f}</span></div></div>'
+    f"{_delta_html(delta_f1)}</div></div>"
     f'<div class="ds-metric-card"><span class="ds-metric-label">Precision</span>'
     f'<div class="ds-metric-value">{metrics.get("precision_macro", 0):.3f} '
     f'<span style="font-size:0.75rem;color:#6b7a90">'
-    f"— {metrics.get('precision_label', 'Stbl')}</span></div></div>"
+    f"{metrics.get('precision_label', 'Live')}</span></div></div>"
     f'<div class="ds-metric-card"><span class="ds-metric-label">Recall</span>'
     f'<div class="ds-metric-value error">{metrics.get("recall_macro", 0):.3f} '
-    f'<span style="font-size:0.75rem">{delta_rec:.2f}</span></div></div>'
-    f'<div class="ds-metric-card"><span class="ds-metric-label">Held-out Events</span>'
-    f'<div class="ds-metric-value">{metrics.get("held_out_events", 0)} '
+    f"{_delta_html(delta_rec, positive_color='#6b7a90')}</div></div>"
+    f'<div class="ds-metric-card"><span class="ds-metric-label">{fourth_card_label}</span>'
+    f'<div class="ds-metric-value">{fourth_card_value:,} '
     f"{icon('public', size=20)}</div></div>"
 )
 st.markdown(f'<div class="ds-metrics-grid">{metrics_html}</div>', unsafe_allow_html=True)
@@ -63,13 +75,18 @@ with left, st.container(border=True):
                 mime="text/csv",
             )
     confusion_matrix.render(matrix, labels)
-    patches = metrics.get("validation_patches", 0)
-    st.markdown(
-        f'<p style="color:#6b7a90;font-size:0.78rem;margin-top:0.75rem">'
-        f"Data normalized over {patches:,} validation patches. "
-        f"Notable confusion between Minor and Major damage classes.</p>",
-        unsafe_allow_html=True,
-    )
+    if eval_samples > 0:
+        st.markdown(
+            f'<p style="color:#6b7a90;font-size:0.78rem;margin-top:0.75rem">'
+            f"Row-normalized confusion matrix from {eval_samples:,} held-out crop evaluations. "
+            f"Notable confusion can occur between minor and major damage classes.</p>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.caption(
+            "Run evaluate to populate real metrics and confusion matrix artifacts. "
+            "Pass --save-figure to also emit the confusion-matrix PNG."
+        )
 
 with right:
     with st.container(border=True):
@@ -114,16 +131,14 @@ with right:
         )
         failures = resolve_failure_case_images()
         if failures:
-            grid = '<div class="ds-failure-grid">'
-            for path in failures[:4]:
-                title = path.stem.replace("_", " ").title()
-                grid += (
-                    f'<div class="ds-failure-thumb">'
-                    f'<img src="file://{path}" alt="{title}" />'
-                    f'<div class="ds-failure-caption">{title}</div></div>'
-                )
-            grid += "</div>"
-            st.markdown(grid, unsafe_allow_html=True)
+            cols = st.columns(min(len(failures[:4]), 4))
+            for col, path in zip(cols, failures[:4], strict=False):
+                with col:
+                    st.image(
+                        str(path),
+                        caption=path.stem.replace("_", " ").title(),
+                        use_container_width=True,
+                    )
             if len(failures) > 4:
                 with st.expander(f"View all {len(failures)} failure cases"):
                     for path in failures[4:]:

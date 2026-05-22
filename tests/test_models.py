@@ -25,6 +25,7 @@ from src.models.crop_dataset import (
     class_distribution_summary,
     compute_class_weights,
     make_weighted_sampler,
+    stratified_sample_records,
 )
 
 
@@ -138,6 +139,22 @@ class TestClassDistribution(unittest.TestCase):
         self.assertEqual(set(summary.keys()), set(DAMAGE_CLASSES))
         self.assertEqual(summary["no_damage"], 3)
         self.assertEqual(summary["minor_damage"], 1)
+
+
+class TestStratifiedSampling(unittest.TestCase):
+    def test_sample_keeps_available_classes(self) -> None:
+        records = (
+            [{"damage_label": "no_damage", "building_id": f"n{i}"} for i in range(20)]
+            + [{"damage_label": "minor_damage", "building_id": "m1"}]
+            + [{"damage_label": "major_damage", "building_id": "j1"}]
+            + [{"damage_label": "destroyed", "building_id": "d1"}]
+        )
+
+        sampled = stratified_sample_records(records, 8, seed=7)
+        labels = {record["damage_label"] for record in sampled}
+
+        self.assertEqual(len(sampled), 8)
+        self.assertEqual(labels, set(DAMAGE_CLASSES))
 
 
 class TestCropDataset(unittest.TestCase):

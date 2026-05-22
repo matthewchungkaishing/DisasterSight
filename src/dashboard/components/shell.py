@@ -18,12 +18,13 @@ def render_topbar(variant: str = "default") -> None:
     st.markdown(
         f'<div class="ds-topbar">'
         f'<div class="ds-topbar-left">'
-        f'<span class="ds-wordmark">DisasterSight</span>'
+        f'<span class="ds-brand-lockup">'
+        f'<span class="ds-mdn-mark" aria-label="Monash DeepNeuron">MDN</span>'
+        f'<span class="ds-wordmark">DisasterSight</span></span>'
         f'<span class="ds-ai-pill">{icon("warning", size=16)} {pill_text}</span></div>'
         f'<div class="ds-topbar-actions">'
         f'<span class="ds-icon-btn">{icon("notifications")}</span>'
-        f'<span class="ds-icon-btn">{icon("settings")}</span>'
-        f'<span class="ds-ready-btn">Ready</span></div></div>',
+        f'<span class="ds-icon-btn">{icon("settings")}</span></div></div>',
         unsafe_allow_html=True,
     )
 
@@ -59,6 +60,3 @@ def render_footer(show_hitl: bool = False) -> None:
         f"</span></div>",
         unsafe_allow_html=True,
     )
-
-
-render_header = render_topbar

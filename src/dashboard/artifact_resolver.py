@@ -140,11 +140,13 @@ def resolve_scenes(paths: dict[str, Path] | None = None) -> tuple[list[dict[str,
         p.get("processed_data_dir", PROJECT_ROOT / "data/processed") / "scenes.json",
         p.get("manifests_dir", PROJECT_ROOT / "artifacts/manifests") / "scenes.json",
         p.get("processed_data_dir", PROJECT_ROOT / "data/processed") / "scenes.csv",
+        p.get("manifests_dir", PROJECT_ROOT / "artifacts/manifests") / "scene_manifest.csv",
+        p.get("manifests_dir", PROJECT_ROOT / "artifacts/manifests") / "scene_manifest_small.csv",
     ]
     found = _first_existing(candidates)
     if found is not None:
         if found.suffix == ".csv":
-            return pd.read_csv(found).to_dict(orient="records"), False
+            return _load_csv_as_dicts(found), False
         data = _load_json(found)
         if isinstance(data, list):
             return data, False
@@ -190,8 +192,10 @@ def resolve_zone_summaries(
 def resolve_predictions(
     scene_id: str,
     paths: dict[str, Path] | None = None,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], bool]:
     """Load building-level predictions for *scene_id*.
+
+    Returns ``(records, is_fixture)``.
 
     Resolution order:
     1. ``{predictions_dir}/{scene_id}.json``
@@ -216,15 +220,17 @@ def resolve_predictions(
             df = pd.read_parquet(candidate)
             if "scene_id" in df.columns:
                 df = df[df["scene_id"] == scene_id]
-            return list(df.to_dict(orient="records"))
+            return list(df.to_dict(orient="records")), False
         if candidate.suffix == ".jsonl":
             rows = [r for r in _load_jsonl(candidate) if r.get("scene_id") == scene_id]
             if rows:
-                return rows
+                return rows, False
         else:
             data = _load_json(candidate)
             rows = data if isinstance(data, list) else data.get("predictions", [])
-            return [r for r in rows if r.get("scene_id") == scene_id]
+            filtered = [r for r in rows if r.get("scene_id") == scene_id]
+            if filtered:
+                return filtered, False
 
     # Inference pipeline CSV outputs
     for split in ("test", "val", "train"):
@@ -235,11 +241,36 @@ def resolve_predictions(
                 _parse_prediction_csv_row(r) for r in rows_raw if r.get("scene_id") == scene_id
             ]
             if scene_rows:
-                return scene_rows
+                return scene_rows, False
 
     # Fixture fallback — scene-scoped only; no cross-scene bleed
     fixture = _load_jsonl(FIXTURES_DIR / "demo_predictions.jsonl")
-    return [r for r in fixture if r.get("scene_id") == scene_id]
+    return [r for r in fixture if r.get("scene_id") == scene_id], True
+
+
+def resolve_prediction_scene_ids(paths: dict[str, Path] | None = None) -> set[str]:
+    """Return scene IDs present in cached prediction artifacts."""
+    p = paths or _resolved_paths()
+    pred_dir = p.get("predictions_dir", PROJECT_ROOT / "artifacts/predictions")
+    scene_ids: set[str] = set()
+
+    for split in ("test", "val", "train"):
+        csv_path = pred_dir / f"building_predictions_{split}.csv"
+        if not csv_path.exists():
+            continue
+        for row in _load_csv_as_dicts(csv_path):
+            scene_id = row.get("scene_id")
+            if scene_id:
+                scene_ids.add(str(scene_id))
+
+    if scene_ids:
+        return scene_ids
+
+    for row in _load_jsonl(FIXTURES_DIR / "demo_predictions.jsonl"):
+        scene_id = row.get("scene_id")
+        if scene_id:
+            scene_ids.add(str(scene_id))
+    return scene_ids
 
 
 def resolve_metrics(paths: dict[str, Path] | None = None) -> tuple[dict[str, Any], bool]:
@@ -249,7 +280,7 @@ def resolve_metrics(paths: dict[str, Path] | None = None) -> tuple[dict[str, Any
 
     Resolution order:
     1. ``artifacts/metrics.json``
-    2. ``artifacts/figures/metrics.json``  (written by evaluate.py --save-figure)
+    2. ``artifacts/figures/metrics.json``  (legacy copy from evaluate.py)
     3. ``artifacts/figures/eval_results_{split}.json``  (normalized on load)
     4. Demo fixture fallback
     """
@@ -309,21 +340,39 @@ def resolve_image_path(relative_path: str) -> Path | None:
     return path if path.exists() else None
 
 
-def scene_image_sources(
-    scene: dict[str, Any],
-) -> tuple[str | None, str | None, Path | None, Path | None]:
-    """Return ``(pre_url, post_url, pre_path, post_path)`` for a scene.
-
-    When local images are available both URLs are suppressed so the
-    dashboard prefers local files.
-    """
-    pre_url = scene.get("pre_image_url") or None
-    post_url = scene.get("post_image_url") or None
+def scene_local_image_paths(scene: dict[str, Any]) -> tuple[Path | None, Path | None]:
+    """Resolve local pre/post disaster image paths for a scene record."""
     pre_path = resolve_image_path(scene.get("pre_image_path", ""))
     post_path = resolve_image_path(scene.get("post_image_path", ""))
-    if pre_path and post_path:
-        return None, None, pre_path, post_path
-    return pre_url, post_url, pre_path, post_path
+    return pre_path, post_path
+
+
+def scene_has_local_images(scene: dict[str, Any]) -> bool:
+    """Return True when both pre- and post-disaster images exist on disk."""
+    pre_path, post_path = scene_local_image_paths(scene)
+    return pre_path is not None and post_path is not None
+
+
+def prioritize_scene_ids(
+    scenes: list[dict[str, Any]],
+    summaries: list[dict[str, Any]],
+    prediction_scene_ids: set[str] | None = None,
+) -> list[str]:
+    """Order scenes so cached predictions and local imagery appear first."""
+    scene_by_id = {str(scene["scene_id"]): scene for scene in scenes if scene.get("scene_id")}
+    summary_by_id = {
+        str(summary["scene_id"]): summary for summary in summaries if summary.get("scene_id")
+    }
+    ordered_ids = list(dict.fromkeys(list(summary_by_id) + list(scene_by_id)))
+
+    def sort_key(scene_id: str) -> tuple[int, int, float]:
+        has_predictions = 1 if prediction_scene_ids and scene_id in prediction_scene_ids else 0
+        scene = scene_by_id.get(scene_id, {})
+        has_images = 1 if scene_has_local_images(scene) else 0
+        priority = float(summary_by_id.get(scene_id, {}).get("priority_score", 0))
+        return (has_predictions + has_images, has_predictions, priority)
+
+    return sorted(ordered_ids, key=sort_key, reverse=True)
 
 
 def build_report_csv(summary: dict[str, Any], predictions: list[dict[str, Any]]) -> str:

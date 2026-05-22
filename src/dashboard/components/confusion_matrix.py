@@ -14,13 +14,12 @@ from src.dashboard.labels import display_label
 
 
 def render(matrix: list[list[float]] | None = None, labels: list[str] | None = None) -> None:
-    """Show a pre-rendered confusion-matrix image or generate a heatmap."""
-    img_path = resolve_confusion_matrix_image()
-    if img_path:
-        st.image(str(img_path), use_container_width=True)
-        return
-
+    """Show a heatmap from loaded metrics, or fall back to a saved PNG."""
     if not matrix:
+        img_path = resolve_confusion_matrix_image()
+        if img_path:
+            st.image(str(img_path), use_container_width=True)
+            return
         st.info("Confusion matrix not available.")
         return
 

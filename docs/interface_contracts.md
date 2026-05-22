@@ -131,7 +131,7 @@ Data sources (in resolution order):
 
 | Artifact | Primary Path | Inference fallback | Offline fallback |
 |---|---|---|---|
-| Scene manifest | `data/processed/scenes.json` | — | `src/dashboard/fixtures/demo_scenes.json` |
+| Scene manifest | `data/processed/scenes.json` | `artifacts/manifests/scene_manifest.csv` | `src/dashboard/fixtures/demo_scenes.json` |
 | Zone summaries | `artifacts/zone_summaries.json` | `artifacts/predictions/scene_summaries_{split}.csv` | `src/dashboard/fixtures/demo_zone_summaries.json` |
 | Predictions | `artifacts/predictions/{scene_id}.json` | `artifacts/predictions/building_predictions_{split}.csv` | `src/dashboard/fixtures/demo_predictions.jsonl` |
 | Metrics | `artifacts/metrics.json` | `artifacts/figures/eval_results_{split}.json` | `src/dashboard/fixtures/demo_metrics.json` |

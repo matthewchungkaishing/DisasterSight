@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
-import streamlit as st
 import streamlit.components.v1 as components
 
 _THEME_PATH = Path(__file__).parent / "theme.css"
@@ -13,12 +13,11 @@ _FONT_ICONS = "https://fonts.googleapis.com/css2?family=Material+Symbols+Outline
 
 
 def inject_theme() -> None:
-    """Inject CSS into the parent document (st.markdown strips <style> tags)."""
-    if st.session_state.get("_ds_theme_injected"):
-        return
-
+    """Inject or refresh CSS in the parent document."""
     css = _THEME_PATH.read_text(encoding="utf-8")
+    css_hash = hashlib.sha256(css.encode("utf-8")).hexdigest()
     css_json = json.dumps(css)
+    css_hash_json = json.dumps(css_hash)
     inter_json = json.dumps(_FONT_INTER)
     icons_json = json.dumps(_FONT_ICONS)
 
@@ -27,29 +26,40 @@ def inject_theme() -> None:
         <script>
         (function () {{
             const doc = window.parent.document;
-            if (doc.getElementById("ds-theme")) return;
+            const cssHash = {css_hash_json};
 
-            const style = doc.createElement("style");
-            style.id = "ds-theme";
-            style.textContent = {css_json};
-            doc.head.appendChild(style);
+            let style = doc.getElementById("ds-theme");
+            if (!style) {{
+                style = doc.createElement("style");
+                style.id = "ds-theme";
+                doc.head.appendChild(style);
+            }}
+            if (style.dataset.dsHash !== cssHash) {{
+                style.textContent = {css_json};
+                style.dataset.dsHash = cssHash;
+            }}
 
-            const inter = doc.createElement("link");
-            inter.rel = "stylesheet";
-            inter.href = {inter_json};
-            doc.head.appendChild(inter);
+            if (!doc.getElementById("ds-font-inter")) {{
+                const inter = doc.createElement("link");
+                inter.id = "ds-font-inter";
+                inter.rel = "stylesheet";
+                inter.href = {inter_json};
+                doc.head.appendChild(inter);
+            }}
 
-            const icons = doc.createElement("link");
-            icons.rel = "stylesheet";
-            icons.href = {icons_json};
-            doc.head.appendChild(icons);
+            if (!doc.getElementById("ds-font-icons")) {{
+                const icons = doc.createElement("link");
+                icons.id = "ds-font-icons";
+                icons.rel = "stylesheet";
+                icons.href = {icons_json};
+                doc.head.appendChild(icons);
+            }}
         }})();
         </script>
         """,
         height=0,
         scrolling=False,
     )
-    st.session_state["_ds_theme_injected"] = True
 
 
 def icon(name: str, *, fill: bool = False, size: int = 24) -> str:

@@ -115,7 +115,7 @@ Architecture:
 
 Deliverables:
 - Scene selector with sidebar navigation
-- Pre/post image viewer with local and remote support
+- Pre/post image viewer with local manifest paths only
 - Damage overlay toggle with configurable opacity
 - Severity breakdown bars
 - Priority score panel with zone summaries

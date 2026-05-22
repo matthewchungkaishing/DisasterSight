@@ -75,7 +75,7 @@ class CropDataset(Dataset):
         if records is None:
             if manifest_path is None:
                 raise ValueError("manifest_path is required when records are not provided.")
-            self._records = self._load_records(manifest_path, split)
+            self._records = load_crop_records(manifest_path, split)
         else:
             self._records = list(records)
         self.label_indices: list[int] = [CLASS_TO_INDEX[r["damage_label"]] for r in self._records]
@@ -128,16 +128,71 @@ class CropDataset(Dataset):
             path = self.project_root / path
         return Image.open(path).convert("RGB")
 
-    @staticmethod
-    def _load_records(manifest_path: Path, split: str) -> list[dict[str, str]]:
-        with manifest_path.open("r", encoding="utf-8", newline="") as handle:
-            reader = csv.DictReader(handle)
-            return [row for row in reader if row.get("split") == split]
-
 
 # ------------------------------------------------------------------
 # Class-weight helpers
 # ------------------------------------------------------------------
+
+
+def load_crop_records(manifest_path: Path, split: str) -> list[dict[str, str]]:
+    """Load crop manifest rows for a split without constructing image tensors."""
+    with manifest_path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        return [row for row in reader if row.get("split") == split]
+
+
+def stratified_sample_records(
+    records: Sequence[dict[str, str]],
+    max_samples: int | None,
+    *,
+    seed: int,
+) -> list[dict[str, str]]:
+    """Return a deterministic class-aware subset for local smoke runs."""
+    if max_samples is None or max_samples >= len(records):
+        return list(records)
+    if max_samples <= 0:
+        raise ValueError("max_samples must be positive when provided.")
+
+    rng = random.Random(seed)
+    grouped: dict[str, list[dict[str, str]]] = {label: [] for label in DAMAGE_CLASSES}
+    overflow: list[dict[str, str]] = []
+    for record in records:
+        label = record.get("damage_label", "")
+        if label in grouped:
+            grouped[label].append(record)
+        else:
+            overflow.append(record)
+
+    for rows in grouped.values():
+        rng.shuffle(rows)
+    rng.shuffle(overflow)
+
+    non_empty_labels = [label for label, rows in grouped.items() if rows]
+    if not non_empty_labels:
+        shuffled = list(records)
+        rng.shuffle(shuffled)
+        return shuffled[:max_samples]
+
+    quota = max(1, max_samples // len(non_empty_labels))
+    selected: list[dict[str, str]] = []
+    selected_ids: set[int] = set()
+    for label in non_empty_labels:
+        for record in grouped[label][:quota]:
+            if len(selected) >= max_samples:
+                break
+            selected.append(record)
+            selected_ids.add(id(record))
+
+    remaining = [
+        record
+        for label in non_empty_labels
+        for record in grouped[label]
+        if id(record) not in selected_ids
+    ]
+    remaining.extend(overflow)
+    rng.shuffle(remaining)
+    selected.extend(remaining[: max_samples - len(selected)])
+    return selected
 
 
 def compute_class_weights(label_indices: Sequence[int], num_classes: int) -> Tensor:

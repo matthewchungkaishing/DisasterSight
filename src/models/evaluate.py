@@ -8,6 +8,7 @@ Usage:
 Outputs:
   - Console: macro F1, per-class F1, confusion matrix
   - JSON:    artifacts/figures/eval_results_{split}.json
+  - JSON:    artifacts/metrics.json (dashboard format, always written)
   - PNG:     artifacts/figures/confusion_matrix_{split}.png  (with --save-figure)
 """
 
@@ -18,26 +19,26 @@ import json
 import logging
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
-from sklearn.metrics import (
-    classification_report,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-)
+from PIL import Image, ImageDraw
 from torch.utils.data import DataLoader
 
+from src.common.classification_metrics import (
+    classification_report_text,
+    confusion_matrix_counts,
+    macro_scores,
+    per_class_precision_recall_f1,
+)
 from src.common.constants import DAMAGE_CLASSES
 from src.common.metrics_format import format_dashboard_metrics
 from src.common.paths import ensure_project_dirs, load_config
 from src.models.classifier import PairedCropClassifier
-from src.models.crop_dataset import NUM_CLASSES, CropDataset
+from src.models.crop_dataset import (
+    NUM_CLASSES,
+    CropDataset,
+    load_crop_records,
+    stratified_sample_records,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -77,9 +78,21 @@ def parse_args() -> argparse.Namespace:
         help="Override batch size for inference (default from config.yaml).",
     )
     parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=None,
+        help="Override DataLoader workers (default from config.yaml).",
+    )
+    parser.add_argument(
         "--save-figure",
         action="store_true",
         help="Save a confusion-matrix PNG to artifacts/figures/.",
+    )
+    parser.add_argument(
+        "--max-samples",
+        type=int,
+        default=None,
+        help="Class-aware cap for evaluation rows. Intended for CPU smoke runs on real xBD crops.",
     )
     return parser.parse_args()
 
@@ -90,40 +103,46 @@ def parse_args() -> argparse.Namespace:
 
 
 def plot_confusion_matrix(
-    cm: np.ndarray,
+    cm: list[list[int]],
     class_names: list[str],
     title: str = "Confusion Matrix",
-) -> plt.Figure:
-    """Return a matplotlib Figure containing a labelled confusion matrix heatmap."""
-    fig, ax = plt.subplots(figsize=(6, 5))
-    im = ax.imshow(cm, interpolation="nearest", cmap="Blues")
-    fig.colorbar(im, ax=ax)
-    ax.set(
-        xticks=np.arange(len(class_names)),
-        yticks=np.arange(len(class_names)),
-        xticklabels=class_names,
-        yticklabels=class_names,
-        title=title,
-        ylabel="True label",
-        xlabel="Predicted label",
-    )
-    plt.setp(ax.get_xticklabels(), rotation=30, ha="right", rotation_mode="anchor")
+) -> Image.Image:
+    """Return a labelled confusion-matrix heatmap image without matplotlib."""
+    cell = 76
+    left = 150
+    top = 84
+    right = 24
+    bottom = 34
+    size = len(class_names)
+    width = left + size * cell + right
+    height = top + size * cell + bottom
+    image = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(image)
 
-    thresh = cm.max() / 2.0
-    for i in range(cm.shape[0]):
-        for j in range(cm.shape[1]):
-            ax.text(
-                j,
-                i,
-                str(cm[i, j]),
-                ha="center",
-                va="center",
-                color="white" if cm[i, j] > thresh else "black",
-                fontsize=10,
-            )
+    draw.text((left, 18), title, fill=(18, 27, 38))
+    draw.text((left + size * cell // 2 - 40, height - 24), "Predicted label", fill=(52, 64, 84))
+    draw.text((12, top - 34), "True label", fill=(52, 64, 84))
 
-    fig.tight_layout()
-    return fig
+    max_value = max((value for row in cm for value in row), default=0)
+    for index, label in enumerate(class_names):
+        x = left + index * cell
+        y = top + index * cell
+        draw.text((x + 6, top - 24), label.replace("_", "\n"), fill=(52, 64, 84))
+        draw.text((12, y + cell // 2 - 8), label, fill=(52, 64, 84))
+
+    for row_idx, row in enumerate(cm):
+        for col_idx, value in enumerate(row):
+            intensity = int(235 - 170 * (value / max_value)) if max_value else 235
+            fill = (intensity, intensity + 8, 255)
+            x1 = left + col_idx * cell
+            y1 = top + row_idx * cell
+            x2 = x1 + cell
+            y2 = y1 + cell
+            draw.rectangle((x1, y1, x2, y2), fill=fill, outline=(207, 216, 226))
+            text_color = "white" if value > max_value / 2 else (18, 27, 38)
+            draw.text((x1 + cell // 2 - 8, y1 + cell // 2 - 8), str(value), fill=text_color)
+
+    return image
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +160,8 @@ def evaluate(
     save_figure: bool = False,
     artifacts_dir: Path | None = None,
     figures_dir: Path | None = None,
+    max_samples: int | None = None,
+    seed: int = 42,
 ) -> dict:
     """Run inference on ``split``, compute metrics, and return a result dict."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -160,11 +181,17 @@ def evaluate(
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 
+    records = stratified_sample_records(
+        load_crop_records(manifest_path, split),
+        max_samples,
+        seed=seed,
+    )
     dataset = CropDataset(
-        manifest_path,
+        None,
         split=split,
         image_size=image_size,
         augment=False,
+        records=records,
     )
     if len(dataset) == 0:
         raise ValueError(f"Split '{split}' is empty in manifest {manifest_path}.")
@@ -195,48 +222,10 @@ def evaluate(
     # ------------------------------------------------------------------
     # Metrics
     # ------------------------------------------------------------------
-    macro_f1 = float(
-        f1_score(
-            all_labels,
-            all_preds,
-            average="macro",
-            zero_division=0,
-            labels=list(range(NUM_CLASSES)),
-        )
-    )
-    precision_macro = float(
-        precision_score(
-            all_labels,
-            all_preds,
-            average="macro",
-            zero_division=0,
-            labels=list(range(NUM_CLASSES)),
-        )
-    )
-    recall_macro = float(
-        recall_score(
-            all_labels,
-            all_preds,
-            average="macro",
-            zero_division=0,
-            labels=list(range(NUM_CLASSES)),
-        )
-    )
-    per_class_f1 = f1_score(
-        all_labels,
-        all_preds,
-        average=None,
-        zero_division=0,
-        labels=list(range(NUM_CLASSES)),
-    )
-    cm = confusion_matrix(all_labels, all_preds, labels=list(range(NUM_CLASSES)))
-    report = classification_report(
-        all_labels,
-        all_preds,
-        target_names=list(DAMAGE_CLASSES),
-        labels=list(range(NUM_CLASSES)),
-        zero_division=0,
-    )
+    cm_counts = confusion_matrix_counts(all_labels, all_preds, num_classes=NUM_CLASSES)
+    precision_macro, recall_macro, macro_f1 = macro_scores(cm_counts)
+    _precision, _recall, per_class_f1 = per_class_precision_recall_f1(cm_counts)
+    report = classification_report_text(cm_counts, list(DAMAGE_CLASSES))
 
     mean_confidence = sum(all_confidences) / max(len(all_confidences), 1)
     low_confidence_count = sum(1 for c in all_confidences if c < 0.5)
@@ -262,8 +251,8 @@ def evaluate(
     log.info("Classification report:\n%s", report)
     log.info("Confusion matrix (rows=true, cols=predicted):")
     log.info("  Classes: %s", " | ".join(DAMAGE_CLASSES))
-    for i, cm_row in enumerate(cm):
-        log.info("  %s: %s", DAMAGE_CLASSES[i], cm_row.tolist())
+    for i, cm_row in enumerate(cm_counts):
+        log.info("  %s: %s", DAMAGE_CLASSES[i], cm_row)
 
     result = {
         "split": split,
@@ -278,7 +267,7 @@ def evaluate(
         },
         "confusion_matrix": {
             "classes": list(DAMAGE_CLASSES),
-            "matrix": cm.tolist(),
+            "matrix": cm_counts,
         },
         "checkpoint": str(checkpoint_path),
         "training_config": saved_config,
@@ -289,21 +278,15 @@ def evaluate(
     # ------------------------------------------------------------------
     if save_figure and figures_dir is not None:
         figures_dir.mkdir(parents=True, exist_ok=True)
-        fig = plot_confusion_matrix(
-            cm,
+        image = plot_confusion_matrix(
+            cm_counts,
             class_names=list(DAMAGE_CLASSES),
-            title=f"Confusion Matrix \u2013 {split} split (macro F1={macro_f1:.3f})",
+            title=f"Confusion Matrix - {split} split (macro F1={macro_f1:.3f})",
         )
         fig_path = figures_dir / f"confusion_matrix_{split}.png"
-        fig.savefig(fig_path, dpi=150)
-        plt.close(fig)
+        image.save(fig_path)
         log.info("Confusion matrix figure saved to %s", fig_path)
         result["figure_path"] = str(fig_path)
-        _write_dashboard_metrics(
-            result,
-            artifacts_dir=artifacts_dir or figures_dir.parent,
-            figures_dir=figures_dir,
-        )
 
     return result
 
@@ -324,6 +307,20 @@ def _write_dashboard_metrics(
         log.info("Dashboard metrics.json saved to %s", metrics_path)
 
 
+def _resolve_manifest_path(cli_manifest: str | None, manifests_dir: Path) -> Path:
+    if cli_manifest:
+        return Path(cli_manifest)
+
+    candidates = [
+        manifests_dir / "crop_manifest.csv",
+        manifests_dir / "crop_manifest_small.csv",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -335,12 +332,15 @@ def main() -> int:
     path_map = ensure_project_dirs(config)
     training_cfg = config.get("training", {})
 
-    manifest_path = (
-        Path(args.manifest) if args.manifest else path_map["manifests_dir"] / "crop_manifest.csv"
-    )
+    manifest_path = _resolve_manifest_path(args.manifest, path_map["manifests_dir"])
     batch_size = args.batch_size or int(training_cfg.get("batch_size", 16))
-    num_workers = int(training_cfg.get("num_workers", 2))
+    num_workers = (
+        args.num_workers
+        if args.num_workers is not None
+        else int(training_cfg.get("num_workers", 2))
+    )
     checkpoint_path = Path(args.checkpoint)
+    seed = int(config.get("project", {}).get("random_seed", 42))
 
     if not checkpoint_path.exists():
         log.error("Checkpoint not found: %s", checkpoint_path)
@@ -358,6 +358,8 @@ def main() -> int:
         save_figure=args.save_figure,
         artifacts_dir=path_map["artifacts_dir"],
         figures_dir=path_map["figures_dir"],
+        max_samples=args.max_samples,
+        seed=seed,
     )
 
     results_path = path_map["figures_dir"] / f"eval_results_{args.split}.json"
@@ -365,6 +367,12 @@ def main() -> int:
     with results_path.open("w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
     log.info("Evaluation results saved to %s", results_path)
+
+    _write_dashboard_metrics(
+        result,
+        artifacts_dir=path_map["artifacts_dir"],
+        figures_dir=path_map["figures_dir"],
+    )
 
     return 0
 

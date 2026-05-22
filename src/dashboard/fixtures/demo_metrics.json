@@ -1,17 +1,17 @@
 {
-  "macro_f1": 0.842,
-  "macro_f1_delta": 0.02,
-  "precision_macro": 0.891,
-  "precision_label": "Stbl",
-  "recall_macro": 0.785,
-  "recall_delta": -0.01,
-  "held_out_events": 14,
+  "macro_f1": 0.0,
+  "macro_f1_delta": 0.0,
+  "precision_macro": 0.0,
+  "precision_label": "N/A",
+  "recall_macro": 0.0,
+  "recall_delta": 0.0,
+  "held_out_events": 0,
   "confusion_matrix": [
-    [0.92, 0.04, 0.02, 0.02],
-    [0.05, 0.74, 0.15, 0.06],
-    [0.03, 0.18, 0.68, 0.11],
-    [0.02, 0.04, 0.12, 0.82]
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0]
   ],
   "confusion_labels": ["no_damage", "minor_damage", "major_damage", "destroyed"],
-  "validation_patches": 4200
+  "validation_patches": 0
 }

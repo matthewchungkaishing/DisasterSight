@@ -80,39 +80,12 @@ def draw_bbox_overlays(
     return Image.alpha_composite(base, overlay).convert("RGB")
 
 
-def draw_demo_overlays(
-    image: Image.Image,
-    predictions: list[dict],
-    opacity: float = 0.45,
-) -> Image.Image:
-    """Draw synthetic building markers when polygon/bbox data is unavailable."""
-    if not predictions:
-        return image
-    overlay = image.copy().convert("RGBA")
-    draw = ImageDraw.Draw(overlay, "RGBA")
-    w, h = overlay.size
-    n = len(predictions)
-    cols = max(1, int(n**0.5))
-    cell_w, cell_h = w // cols, h // max(1, (n + cols - 1) // cols)
-    for idx, pred in enumerate(predictions[:24]):
-        rgb = _label_color(pred)
-        row, col = divmod(idx, cols)
-        x0 = col * cell_w + 8
-        y0 = row * cell_h + 8
-        x1 = x0 + cell_w - 16
-        y1 = y0 + cell_h - 16
-        alpha = int(255 * opacity)
-        draw.rectangle([x0, y0, x1, y1], fill=(*rgb, alpha), outline=(*rgb, 255))
-    base = image.convert("RGBA")
-    return Image.alpha_composite(base, overlay).convert("RGB")
-
-
 def draw_prediction_overlays(
     image: Image.Image,
     predictions: list[dict],
     opacity: float = 0.45,
 ) -> Image.Image:
-    """Draw prediction overlays using real bbox coords when available, else demo grid."""
-    if _has_valid_bboxes(predictions):
-        return draw_bbox_overlays(image, predictions, opacity=opacity)
-    return draw_demo_overlays(image, predictions, opacity=opacity)
+    """Draw building bbox overlays when prediction coordinates are available."""
+    if not _has_valid_bboxes(predictions):
+        return image
+    return draw_bbox_overlays(image, predictions, opacity=opacity)

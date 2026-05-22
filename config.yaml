@@ -70,10 +70,8 @@ inference:
   review_threshold: 0.5
 
 dashboard:
-  default_scene_limit: 5
-  show_confidence: true
-  show_priority_score: true
-  show_review_flags: true
+  scene_explorer_max_pane_height_px: 420
+  scene_explorer_estimated_width_px: 960
 
 priority_score:
   destroyed_weight: 0.50

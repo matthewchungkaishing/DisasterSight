@@ -6,7 +6,7 @@ Stitch mockup references: [`design_refs/dashboard.png`](design_refs/dashboard.pn
 
 | Token | Hex | Usage |
 |-------|-----|--------|
-| `bg_app` | `#0B0E14` | Page background |
+| `bg_app` | `#765FEF` | Page background |
 | `bg_sidebar` | `#121820` | Sidebar |
 | `bg_card` | `#161B22` | KPI cards, panels |
 | `bg_card_elevated` | `#1C252E` | Tables, widgets |
@@ -17,6 +17,15 @@ Stitch mockup references: [`design_refs/dashboard.png`](design_refs/dashboard.pn
 | `accent_info` | `#1E3A5F` | Info banners |
 
 Damage severity colors are defined in `src/common/constants.py` (`OVERLAY_COLORS`) and used for legends, badges, charts, and overlays.
+
+## Scene image viewer
+
+- Layout math lives in `src/dashboard/components/scene_viewer_layout.py` (pure, testable).
+- Rendering lives in `src/dashboard/components/image_viewer.py`; orchestration in `scene_explorer.py`.
+- Single card surface (`#161B22`) — no nested black/grey pane backgrounds; iframe body is transparent.
+- Panes use native image `aspect-ratio` with `object-fit: contain` so imagery scales within each pane without cropping (letterboxing may appear when aspect ratios differ).
+- Pane height cap: `dashboard.scene_explorer_max_pane_height_px` in `config.yaml` (default 420px).
+- Iframe height is computed from layout so content is not clipped on wide screens.
 
 ## Typography
 

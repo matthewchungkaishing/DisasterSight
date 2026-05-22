@@ -7,6 +7,7 @@ running Streamlit server.
 
 from __future__ import annotations
 
+import inspect
 import json
 import os
 import tempfile
@@ -179,6 +180,15 @@ class TestArtifactResolver(unittest.TestCase):
             for row in rows:
                 fh.write(json.dumps(row) + "\n")
 
+    def _write_csv(self, path: Path, fieldnames: list[str], rows: list[dict[str, Any]]) -> None:
+        import csv as csv_mod
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8", newline="") as fh:
+            writer = csv_mod.DictWriter(fh, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+
     def test_resolve_scenes_from_json(self) -> None:
         from src.dashboard.artifact_resolver import resolve_scenes
 
@@ -193,6 +203,47 @@ class TestArtifactResolver(unittest.TestCase):
             self.assertFalse(is_fixture)
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0]["scene_id"], "test_001")
+
+    def test_resolve_scenes_from_scene_manifest_csv(self) -> None:
+        from src.dashboard.artifact_resolver import resolve_scenes
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            manifests = Path(tmpdir) / "artifacts" / "manifests"
+            fields = [
+                "scene_id",
+                "disaster_name",
+                "disaster_type",
+                "pre_image_path",
+                "post_image_path",
+                "pre_json_path",
+                "post_json_path",
+                "label_json_path",
+                "split",
+            ]
+            self._write_csv(
+                manifests / "scene_manifest.csv",
+                fields,
+                [
+                    {
+                        "scene_id": "real-xbd-001",
+                        "disaster_name": "real-event",
+                        "disaster_type": "earthquake",
+                        "pre_image_path": "data/raw/pre.png",
+                        "post_image_path": "data/raw/post.png",
+                        "pre_json_path": "data/raw/pre.json",
+                        "post_json_path": "data/raw/post.json",
+                        "label_json_path": "data/raw/post.json",
+                        "split": "test",
+                    }
+                ],
+            )
+
+            records, is_fixture = resolve_scenes(
+                paths={"processed_data_dir": Path("/nonexistent"), "manifests_dir": manifests}
+            )
+
+            self.assertFalse(is_fixture)
+            self.assertEqual(records[0]["scene_id"], "real-xbd-001")
 
     def test_resolve_scenes_fixture_fallback(self) -> None:
         from src.dashboard.artifact_resolver import resolve_scenes
@@ -213,7 +264,8 @@ class TestArtifactResolver(unittest.TestCase):
             ]
             self._write_jsonl(pred_dir / "s1.jsonl", rows)
             paths = {"predictions_dir": pred_dir}
-            result = resolve_predictions("s1", paths=paths)
+            result, is_fixture = resolve_predictions("s1", paths=paths)
+            self.assertFalse(is_fixture)
             self.assertEqual(len(result), 1)
             self.assertEqual(result[0]["building_id"], "b1")
 
@@ -228,7 +280,8 @@ class TestArtifactResolver(unittest.TestCase):
             ]
             self._write_json(pred_dir / "s1.json", data)
             paths = {"predictions_dir": pred_dir}
-            result = resolve_predictions("s1", paths=paths)
+            result, is_fixture = resolve_predictions("s1", paths=paths)
+            self.assertFalse(is_fixture)
             self.assertEqual(len(result), 2)
 
     def test_resolve_metrics_fixture_fallback(self) -> None:
@@ -243,6 +296,7 @@ class TestArtifactResolver(unittest.TestCase):
         from src.dashboard.artifact_resolver import resolve_zone_summaries
 
         paths = {"artifacts_dir": Path("/nonexistent"), "processed_data_dir": Path("/nonexistent")}
+        paths["predictions_dir"] = Path("/nonexistent")
         records, is_fixture = resolve_zone_summaries(paths=paths)
         self.assertTrue(is_fixture)
         self.assertGreater(len(records), 0)
@@ -255,8 +309,8 @@ class TestArtifactResolver(unittest.TestCase):
         self.assertIsNone(resolve_image_path(""))
         self.assertIsNone(resolve_image_path("data/nonexistent/image.png"))
 
-    def test_scene_image_sources_local_preferred(self) -> None:
-        from src.dashboard.artifact_resolver import scene_image_sources
+    def test_scene_local_image_paths(self) -> None:
+        from src.dashboard.artifact_resolver import scene_has_local_images, scene_local_image_paths
 
         with tempfile.TemporaryDirectory() as tmpdir:
             pre = Path(tmpdir) / "pre.png"
@@ -265,16 +319,15 @@ class TestArtifactResolver(unittest.TestCase):
             post.write_bytes(b"fake")
 
             scene = {
-                "pre_image_url": "https://example.com/pre.png",
-                "post_image_url": "https://example.com/post.png",
                 "pre_image_path": str(pre),
                 "post_image_path": str(post),
             }
             with mock.patch("src.dashboard.artifact_resolver.PROJECT_ROOT", Path("/")):
-                pre_url, post_url, _pre_p, _post_p = scene_image_sources(scene)
+                pre_path, post_path = scene_local_image_paths(scene)
 
-            self.assertIsNone(pre_url)
-            self.assertIsNone(post_url)
+            self.assertIsNotNone(pre_path)
+            self.assertIsNotNone(post_path)
+            self.assertTrue(scene_has_local_images(scene))
 
     def test_build_report_csv(self) -> None:
         from src.dashboard.artifact_resolver import build_report_csv
@@ -298,6 +351,34 @@ class TestArtifactResolver(unittest.TestCase):
 
         paths = {"figures_dir": Path("/nonexistent")}
         self.assertIsNone(resolve_confusion_matrix_image(paths=paths))
+
+    def test_prioritize_scene_ids_prefers_predictions_and_images(self) -> None:
+        from src.dashboard.artifact_resolver import prioritize_scene_ids
+
+        scenes = [
+            {"scene_id": "scene-a", "pre_image_path": "", "post_image_path": ""},
+            {"scene_id": "scene-b", "pre_image_path": "", "post_image_path": ""},
+        ]
+        summaries = [
+            {"scene_id": "scene-a", "priority_score": 99.0},
+            {"scene_id": "scene-b", "priority_score": 50.0},
+        ]
+        ordered = prioritize_scene_ids(scenes, summaries, {"scene-b"})
+        self.assertEqual(ordered[0], "scene-b")
+
+    def test_resolve_prediction_scene_ids_from_csv(self) -> None:
+        from src.dashboard.artifact_resolver import resolve_prediction_scene_ids
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pred_dir = Path(tmpdir) / "predictions"
+            pred_dir.mkdir(parents=True)
+            csv_path = pred_dir / "building_predictions_test.csv"
+            csv_path.write_text(
+                "scene_id,building_id\nscene-x,b1\nscene-y,b2\n",
+                encoding="utf-8",
+            )
+            scene_ids = resolve_prediction_scene_ids(paths={"predictions_dir": pred_dir})
+            self.assertEqual(scene_ids, {"scene-x", "scene-y"})
 
 
 class TestArtifactResolverCSV(unittest.TestCase):
@@ -381,7 +462,8 @@ class TestArtifactResolverCSV(unittest.TestCase):
             self._write_csv(pred_dir / "building_predictions_test.csv", fields, rows)
             paths = {"predictions_dir": pred_dir}
 
-            result = resolve_predictions("scene-A", paths=paths)
+            result, is_fixture = resolve_predictions("scene-A", paths=paths)
+            self.assertFalse(is_fixture)
             self.assertEqual(len(result), 1)
             self.assertEqual(result[0]["building_id"], "b1")
             self.assertAlmostEqual(result[0]["confidence"], 0.92)
@@ -437,7 +519,8 @@ class TestArtifactResolverCSV(unittest.TestCase):
             self._write_csv(pred_dir / "building_predictions_test.csv", fields, rows)
             paths = {"predictions_dir": pred_dir}
 
-            result = resolve_predictions("s1", paths=paths)
+            result, is_fixture = resolve_predictions("s1", paths=paths)
+            self.assertFalse(is_fixture)
             self.assertTrue(result[0]["needs_review"])
             self.assertEqual(result[0]["bbox_x1"], 5)
 
@@ -589,6 +672,137 @@ class TestArtifactResolverCSV(unittest.TestCase):
             self.assertEqual(result, img_path)
 
 
+class TestDashboardCaching(unittest.TestCase):
+    """Streamlit cache invalidation helpers."""
+
+    def test_cached_loader_tokens_are_hashed_by_streamlit(self) -> None:
+        from src.dashboard import data_loaders
+
+        cached_functions = [
+            data_loaders._load_scenes_cached,
+            data_loaders._load_zone_summaries_cached,
+            data_loaders._load_predictions_cached,
+            data_loaders._load_metrics_cached,
+        ]
+
+        for func in cached_functions:
+            params = inspect.signature(func).parameters
+            self.assertIn("token", params)
+            self.assertNotIn("_token", params)
+
+    def test_artifact_token_changes_when_prediction_artifact_appears(self) -> None:
+        from src.dashboard import data_loaders
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            path_map = {
+                "manifests_dir": root / "manifests",
+                "predictions_dir": root / "predictions",
+                "figures_dir": root / "figures",
+                "artifacts_dir": root / "artifacts",
+                "processed_data_dir": root / "processed",
+            }
+            for path in path_map.values():
+                path.mkdir(parents=True, exist_ok=True)
+
+            with mock.patch("src.dashboard.data_loaders.get_path_map", return_value=path_map):
+                before = data_loaders._artifact_token("predictions", "scene-1")
+                (path_map["predictions_dir"] / "building_predictions_test.csv").write_text(
+                    "scene_id,building_id,predicted_label\nscene-1,b1,destroyed\n",
+                    encoding="utf-8",
+                )
+                after = data_loaders._artifact_token("predictions", "scene-1")
+
+        self.assertNotEqual(before, after)
+
+
+class TestSceneViewerLayout(unittest.TestCase):
+    """Pure layout sizing for the scene explorer."""
+
+    def test_square_image_caps_at_max_height(self) -> None:
+        from src.dashboard.components.scene_viewer_layout import compute_scene_viewer_layout
+
+        layout = compute_scene_viewer_layout(
+            1024,
+            1024,
+            max_pane_height_px=420,
+            estimated_container_width_px=960,
+        )
+        self.assertEqual(layout.pane_display_height_px, 420)
+        self.assertEqual(layout.component_height_px, 420 + 44 + 24)
+
+    def test_wide_image_scales_by_width_before_cap(self) -> None:
+        from src.dashboard.components.scene_viewer_layout import compute_pane_display_height
+
+        height = compute_pane_display_height(
+            2048,
+            1024,
+            pane_width_px=480,
+            max_pane_height_px=420,
+        )
+        self.assertEqual(height, 240)
+
+    def test_layout_config_defaults_from_yaml(self) -> None:
+        from src.dashboard.config import get_scene_viewer_layout_settings
+
+        settings = get_scene_viewer_layout_settings()
+        self.assertEqual(settings["max_pane_height_px"], 420)
+        self.assertEqual(settings["estimated_container_width_px"], 960)
+
+
+class TestImageViewer(unittest.TestCase):
+    """Interactive image viewer HTML contract."""
+
+    def test_viewer_uses_aspect_panes_without_extra_background_layers(self) -> None:
+        from src.dashboard.components.image_viewer import (
+            CARD_BACKGROUND,
+            ImagePane,
+            build_scene_viewer_html,
+        )
+        from src.dashboard.components.scene_viewer_layout import compute_scene_viewer_layout
+
+        layout = compute_scene_viewer_layout(1024, 1024, max_pane_height_px=420)
+        html_output = build_scene_viewer_html(
+            "Scene Explorer - Wildfire",
+            "Mean confidence: 82%",
+            (
+                ImagePane(
+                    "pre",
+                    "Pre-disaster",
+                    "data:image/jpeg;base64,aaa",
+                    "Pre image",
+                    width=1024,
+                    height=1024,
+                ),
+                ImagePane(
+                    "post",
+                    "Post-disaster",
+                    "data:image/jpeg;base64,bbb",
+                    "Post image",
+                    width=1024,
+                    height=1024,
+                ),
+            ),
+            layout,
+        )
+
+        self.assertEqual(CARD_BACKGROUND, "#161B22")
+        self.assertIn("object-fit: contain", html_output)
+        self.assertIn("--pane-aspect: 1024 / 1024", html_output)
+        self.assertIn("--pane-max-height: 420px", html_output)
+        self.assertIn("background: var(--card-bg)", html_output)
+        self.assertNotIn("--viewer-bg", html_output)
+        self.assertNotIn("image-stage", html_output)
+        self.assertIn("open_in_full", html_output)
+
+    def test_global_theme_uses_requested_background(self) -> None:
+        theme_css = Path("src/dashboard/theme.css").read_text(encoding="utf-8")
+
+        self.assertIn("--ds-app-background: #765FEF", theme_css)
+        self.assertIn("background: var(--ds-app-background) !important", theme_css)
+        self.assertNotIn("linear-gradient(135deg, #28374f", theme_css)
+
+
 class TestOverlays(unittest.TestCase):
     """Overlay drawing and image helpers."""
 
@@ -618,27 +832,14 @@ class TestOverlays(unittest.TestCase):
         path.unlink(missing_ok=True)
         os.rmdir(tmpdir)
 
-    def test_draw_demo_overlays_no_predictions(self) -> None:
-        from src.dashboard.overlays import draw_demo_overlays
-
-        img = Image.fromarray(np.zeros((100, 100, 3), dtype=np.uint8))
-        result = draw_demo_overlays(img, [])
-        self.assertEqual(result.size, img.size)
-
-    def test_draw_demo_overlays_with_predictions(self) -> None:
-        from src.dashboard.overlays import draw_demo_overlays
+    def test_draw_prediction_overlays_skips_without_bbox(self) -> None:
+        from src.dashboard.overlays import draw_prediction_overlays
 
         img = Image.fromarray(np.zeros((200, 200, 3), dtype=np.uint8))
-        preds = [
-            {"predicted_label": "destroyed", "needs_review": False},
-            {"predicted_label": "no_damage", "needs_review": False},
-            {"predicted_label": "minor_damage", "needs_review": True},
-        ]
-        result = draw_demo_overlays(img, preds, opacity=0.5)
+        preds = [{"predicted_label": "no_damage", "needs_review": False}]
+        result = draw_prediction_overlays(img, preds)
         self.assertEqual(result.size, (200, 200))
-        self.assertEqual(result.mode, "RGB")
-        result_arr = np.array(result)
-        self.assertTrue(result_arr.max() > 0)
+        self.assertTrue(np.array_equal(np.array(result), np.array(img)))
 
     def test_has_valid_bboxes_with_valid_coords(self) -> None:
         from src.dashboard.overlays import _has_valid_bboxes
@@ -715,13 +916,74 @@ class TestOverlays(unittest.TestCase):
         result_arr = np.array(result)
         self.assertTrue(result_arr.max() > 0)
 
-    def test_draw_prediction_overlays_falls_back_to_demo_without_bbox(self) -> None:
-        from src.dashboard.overlays import draw_prediction_overlays
 
-        img = Image.fromarray(np.zeros((200, 200, 3), dtype=np.uint8))
-        preds = [{"predicted_label": "no_damage", "needs_review": False}]
-        result = draw_prediction_overlays(img, preds)
-        self.assertEqual(result.size, (200, 200))
+class TestDataLoadersSceneSelection(unittest.TestCase):
+    """Scene ID resolution for dashboard sidebar/content alignment."""
+
+    def test_resolve_selected_scene_id_prefers_scene_with_predictions(self) -> None:
+        from src.dashboard import data_loaders
+
+        with (
+            mock.patch.object(data_loaders, "load_scene_ids", return_value=["scene-a", "scene-b"]),
+            mock.patch.object(
+                data_loaders,
+                "load_predictions",
+                side_effect=lambda sid: [{"building_id": "b1"}] if sid == "scene-b" else [],
+            ),
+        ):
+            self.assertEqual(
+                data_loaders.resolve_selected_scene_id("scene-a"),
+                "scene-b",
+            )
+
+    def test_resolve_selected_scene_id_keeps_preferred_when_it_has_predictions(self) -> None:
+        from src.dashboard import data_loaders
+
+        with (
+            mock.patch.object(data_loaders, "load_scene_ids", return_value=["scene-a", "scene-b"]),
+            mock.patch.object(
+                data_loaders,
+                "load_predictions",
+                side_effect=lambda sid: [{"building_id": "b1"}] if sid == "scene-a" else [],
+            ),
+        ):
+            self.assertEqual(
+                data_loaders.resolve_selected_scene_id("scene-a"),
+                "scene-a",
+            )
+
+
+class TestConfusionMatrixDisplay(unittest.TestCase):
+    """Confusion matrix rendering prefers loaded metrics over stale PNGs."""
+
+    def test_render_prefers_matrix_over_saved_png(self) -> None:
+        source = Path("src/dashboard/components/confusion_matrix.py").read_text(encoding="utf-8")
+        render_body = source.split("def render(", maxsplit=1)[1]
+        matrix_branch = render_body.index("if not matrix:")
+        png_lookup = render_body.index("resolve_confusion_matrix_image")
+        self.assertLess(
+            matrix_branch,
+            png_lookup,
+            "render() should only fall back to PNG when matrix is missing",
+        )
+
+
+class TestDemoPredictionFixtures(unittest.TestCase):
+    """Demo prediction fixtures support overlay rendering."""
+
+    def test_demo_predictions_include_bbox_fields(self) -> None:
+        from src.dashboard.artifact_resolver import resolve_predictions
+
+        with mock.patch(
+            "src.dashboard.artifact_resolver._first_existing",
+            return_value=None,
+        ):
+            records, is_fixture = resolve_predictions("pinery-bushfire_00000000")
+        self.assertTrue(is_fixture)
+        self.assertTrue(records)
+        for record in records:
+            self.assertIn("bbox_x1", record)
+            self.assertIn("bbox_y2", record)
 
 
 if __name__ == "__main__":

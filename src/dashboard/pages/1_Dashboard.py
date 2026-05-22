@@ -12,13 +12,23 @@ from src.dashboard.components import (
     shell,
     sidebar,
 )
-from src.dashboard.data_loaders import get_scene_by_id, get_zone_summary_for_scene, load_predictions
+from src.dashboard.data_loaders import (
+    get_scene_by_id,
+    get_zone_summary_for_scene,
+    load_predictions,
+    resolve_selected_scene_id,
+)
 from src.dashboard.navigation import set_active_page
 
 set_active_page("dashboard")
 shell.render_topbar("default")
-scene_id = sidebar.render_sidebar_extras()
 
+st.session_state.setdefault("selected_scene_id", "")
+resolved_scene_id = resolve_selected_scene_id(st.session_state.get("selected_scene_id"))
+if resolved_scene_id:
+    st.session_state.selected_scene_id = resolved_scene_id
+
+scene_id = sidebar.render_sidebar_extras()
 scene = get_scene_by_id(scene_id) or {}
 summary = get_zone_summary_for_scene(scene_id)
 predictions = load_predictions(scene_id)
@@ -43,16 +53,10 @@ scene_explorer.render(
     st.session_state.get("overlay_opacity", 0.45),
 )
 
-st.markdown('<div class="ds-bottom-grid">', unsafe_allow_html=True)
-col_l, col_r = st.columns([1, 2])
+col_l, col_r = st.columns([0.95, 1.55], gap="medium")
 with col_l:
-    st.markdown('<div class="ds-panel">', unsafe_allow_html=True)
     severity_bars.render(class_counts, total)
-    st.markdown("</div>", unsafe_allow_html=True)
 with col_r:
-    st.markdown('<div class="ds-panel" style="padding:0">', unsafe_allow_html=True)
     building_table.render(predictions, scene_id)
-    st.markdown("</div>", unsafe_allow_html=True)
-st.markdown("</div>", unsafe_allow_html=True)
 
 shell.render_footer(show_hitl=False)
