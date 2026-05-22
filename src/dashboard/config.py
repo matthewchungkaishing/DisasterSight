@@ -28,10 +28,14 @@ def get_priority_weights() -> dict[str, float]:
     return priority_weights_from_config(get_dashboard_config().get("priority_score", {}))
 
 
-def get_scene_viewer_layout_settings() -> dict[str, int]:
+def get_scene_viewer_layout_settings() -> dict[str, Any]:
     """Scene Explorer sizing knobs from config.yaml."""
     dash = get_dashboard_config().get("dashboard", {})
-    return {
-        "max_pane_height_px": int(dash.get("scene_explorer_max_pane_height_px", 420)),
-        "estimated_container_width_px": int(dash.get("scene_explorer_estimated_width_px", 960)),
+    settings: dict[str, Any] = {
+        "estimated_container_width_px": int(dash.get("scene_explorer_estimated_width_px", 880)),
+        "grid_padding_px": int(dash.get("scene_explorer_grid_padding_px", 0)),
     }
+    raw_max = dash.get("scene_explorer_max_pane_height_px")
+    if raw_max is not None:
+        settings["max_pane_height_px"] = int(raw_max)
+    return settings

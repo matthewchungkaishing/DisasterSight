@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.dashboard.components.image_viewer import ImagePane, image_to_data_uri, render_scene_viewer
+from src.dashboard.components.scene_viewer import ImagePane, image_to_data_uri, render_scene_viewer
 from src.dashboard.components.scene_viewer_layout import compute_scene_viewer_layout
 from src.dashboard.config import get_scene_viewer_layout_settings
 from src.dashboard.data_loaders import get_scene_image_paths

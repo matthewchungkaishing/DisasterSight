@@ -28,8 +28,8 @@ def render(matrix: list[list[float]] | None = None, labels: list[str] | None = N
     data = np.array(matrix)
 
     fig, ax = plt.subplots(figsize=(5, 4))
-    fig.patch.set_facecolor("#161B22")
-    ax.set_facecolor("#161B22")
+    fig.patch.set_facecolor("#1E2438")
+    ax.set_facecolor("#1E2438")
     im = ax.imshow(data, cmap="Blues", vmin=0, vmax=1)
     ax.set_xticks(range(len(display_labels)))
     ax.set_yticks(range(len(display_labels)))

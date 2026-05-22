@@ -1,24 +1,15 @@
-"""Sidebar component — navigation, scene selector, legend, and export."""
+"""Sidebar component — navigation, scene selector, overlay controls, and export."""
 
 from __future__ import annotations
 
 import streamlit as st
 
-from src.common.constants import OVERLAY_COLORS
 from src.dashboard.data_loaders import (
     clear_dashboard_caches,
     export_report_csv,
     load_scene_ids,
 )
 from src.dashboard.navigation import NAV_ITEMS, get_active_page, switch_to
-
-_LEGEND_ITEMS: list[tuple[str, str]] = [
-    ("no_damage", "No damage"),
-    ("minor_damage", "Minor"),
-    ("major_damage", "Major"),
-    ("destroyed", "Destroyed"),
-    ("review_required", "Review required"),
-]
 
 _MATERIAL_ICONS: dict[str, str] = {
     "dashboard": ":material/dashboard:",
@@ -48,8 +39,8 @@ def render_sidebar_extras() -> str:
 
     _render_navigation(active)
     selected = _render_scene_selector(scenes)
-    _render_legend()
-    _render_view_options()
+    _render_overlay_controls()
+    _render_actions()
     _render_export(selected)
     return selected
 
@@ -89,44 +80,40 @@ def _render_scene_selector(scene_ids: list[str]) -> str:
         key="sidebar_scene_select",
     )
     st.session_state.selected_scene_id = selected
+    st.sidebar.markdown("---")
     return selected
 
 
-def _render_legend() -> None:
+def _render_overlay_controls() -> None:
     st.sidebar.markdown(
-        '<span class="ds-label-caps">Damage Legend</span>',
+        '<span class="ds-label-caps">Overlay Controls</span>',
         unsafe_allow_html=True,
     )
-    for key, label in _LEGEND_ITEMS:
-        color = OVERLAY_COLORS.get(key, "#9AA8BC")
-        st.sidebar.markdown(
-            f'<div class="ds-legend-row">'
-            f'<span class="ds-legend-dot" style="background:{color}"></span>{label}</div>',
-            unsafe_allow_html=True,
-        )
+    st.session_state.show_overlays = st.sidebar.toggle(
+        "Show model overlay",
+        value=st.session_state.show_overlays,
+        help="Draw cached model predictions over the post-disaster image.",
+    )
+    st.session_state.overlay_opacity = st.sidebar.slider(
+        "Overlay opacity",
+        0.1,
+        0.9,
+        st.session_state.overlay_opacity,
+        0.05,
+        disabled=not st.session_state.show_overlays,
+    )
+    st.sidebar.markdown("---")
 
 
-def _render_view_options() -> None:
-    with st.sidebar.expander("View options", expanded=False):
-        st.session_state.show_overlays = st.checkbox(
-            "Show model overlay",
-            value=st.session_state.show_overlays,
-            help="Draw cached model predictions over the post-disaster image.",
-        )
-        st.session_state.overlay_opacity = st.slider(
-            "Overlay opacity",
-            0.1,
-            0.9,
-            st.session_state.overlay_opacity,
-            0.05,
-        )
-        if st.button(
-            "Refresh cached artifacts",
-            icon=":material/refresh:",
-            use_container_width=True,
-        ):
-            clear_dashboard_caches()
-            st.rerun()
+def _render_actions() -> None:
+    if st.sidebar.button(
+        "Refresh cached artifacts",
+        icon=":material/refresh:",
+        use_container_width=True,
+        key="sidebar_refresh",
+    ):
+        clear_dashboard_caches()
+        st.rerun()
 
 
 def _render_export(scene_id: str) -> None:

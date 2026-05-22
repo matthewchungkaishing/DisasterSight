@@ -6,12 +6,17 @@ import streamlit as st
 
 from src.dashboard.components import (
     building_table,
-    metric_card,
     scene_explorer,
     severity_bars,
     shell,
     sidebar,
 )
+from src.dashboard.components.dashboard_layout import (
+    HERO_COLUMN_WEIGHTS,
+    TABLE_ROW_COLUMN_WEIGHTS,
+    render_section_marker,
+)
+from src.dashboard.components.metrics import render_scene_metrics_quadrant
 from src.dashboard.data_loaders import (
     get_scene_by_id,
     get_zone_summary_for_scene,
@@ -21,7 +26,7 @@ from src.dashboard.data_loaders import (
 from src.dashboard.navigation import set_active_page
 
 set_active_page("dashboard")
-shell.render_topbar("default")
+shell.render_topbar()
 
 st.session_state.setdefault("selected_scene_id", "")
 resolved_scene_id = resolve_selected_scene_id(st.session_state.get("selected_scene_id"))
@@ -42,21 +47,29 @@ avg_conf = 0.0
 if predictions:
     avg_conf = sum(float(p.get("confidence", 0)) for p in predictions) / len(predictions)
 
-metric_card.render_metrics_row(total, priority, review_count, class_counts)
+render_section_marker("hero")
+hero_left, hero_right = st.columns(HERO_COLUMN_WEIGHTS, gap="small")
+with hero_left:
+    scene_explorer.render(
+        scene,
+        disaster_type,
+        predictions,
+        avg_conf * 100,
+        st.session_state.get("show_overlays", True),
+        st.session_state.get("overlay_opacity", 0.45),
+    )
+with hero_right:
+    render_scene_metrics_quadrant(total, priority, review_count, class_counts)
+    severity_bars.render(
+        class_counts,
+        total,
+        compact=True,
+        sidebar=True,
+    )
 
-scene_explorer.render(
-    scene,
-    disaster_type,
-    predictions,
-    avg_conf * 100,
-    st.session_state.get("show_overlays", True),
-    st.session_state.get("overlay_opacity", 0.45),
-)
-
-col_l, col_r = st.columns([0.95, 1.55], gap="medium")
-with col_l:
-    severity_bars.render(class_counts, total)
-with col_r:
-    building_table.render(predictions, scene_id)
+render_section_marker("table")
+table_col, _table_spacer = st.columns(TABLE_ROW_COLUMN_WEIGHTS, gap="small")
+with table_col:
+    building_table.render(predictions, scene_id, compact=True)
 
 shell.render_footer(show_hitl=False)

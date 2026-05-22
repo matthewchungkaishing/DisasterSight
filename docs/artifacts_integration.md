@@ -20,7 +20,7 @@ Missing real artifacts trigger demo fixtures with a one-time Streamlit warning p
 
 Remote preview URLs and synthetic demo overlays are not used. Scene Explorer reads local xBD imagery from manifest paths only. Damage overlays require real bbox fields from cached inference CSVs.
 
-Scene Explorer pane height is config-driven (`dashboard.scene_explorer_max_pane_height_px`, default 420). Layout sizing is computed in `scene_viewer_layout.py`; panes use native `aspect-ratio` with `object-fit: contain` so imagery scales within each slot without cropping (letterboxing may appear for non-matching aspect ratios).
+Scene Explorer pane height auto-adapts to the computed slot width so square images fill the container without dead-space padding. An explicit cap can be set via `dashboard.scene_explorer_max_pane_height_px` in `config.yaml` if needed. Layout sizing is computed in `scene_viewer_layout.py`; interactive zoom/pan and full-width viewing are implemented in `src/dashboard/components/scene_viewer/assets/viewer.js`.
 
 `python -m src.models.evaluate` always writes `artifacts/metrics.json` in dashboard format; pass `--save-figure` to also emit the confusion-matrix PNG.
 

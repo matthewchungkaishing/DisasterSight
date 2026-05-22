@@ -2,29 +2,31 @@
 
 from __future__ import annotations
 
+import base64
+from pathlib import Path
+
 import streamlit as st
 
-from src.dashboard.styles import icon
-
-_HEADER_VARIANTS: dict[str, str] = {
-    "default": "Responsible AI Active: Predictions require human validation",
-    "analytics": "Model Review & Ethical Limitations Protocol Active",
-}
+_ASSETS_DIR = Path(__file__).parent.parent / "assets"
 
 
-def render_topbar(variant: str = "default") -> None:
-    """Render the app-wide top bar with the responsible-AI pill."""
-    pill_text = _HEADER_VARIANTS.get(variant, _HEADER_VARIANTS["default"])
+def _logo_data_uri() -> str:
+    """Return a data URI for the MDN logo PNG."""
+    logo_path = _ASSETS_DIR / "mdn_logo.png"
+    data = logo_path.read_bytes()
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+def render_topbar() -> None:
+    """Render the app-wide top bar."""
+    logo_uri = _logo_data_uri()
     st.markdown(
         f'<div class="ds-topbar">'
         f'<div class="ds-topbar-left">'
         f'<span class="ds-brand-lockup">'
-        f'<span class="ds-mdn-mark" aria-label="Monash DeepNeuron">MDN</span>'
-        f'<span class="ds-wordmark">DisasterSight</span></span>'
-        f'<span class="ds-ai-pill">{icon("warning", size=16)} {pill_text}</span></div>'
-        f'<div class="ds-topbar-actions">'
-        f'<span class="ds-icon-btn">{icon("notifications")}</span>'
-        f'<span class="ds-icon-btn">{icon("settings")}</span></div></div>',
+        f'<img class="ds-mdn-logo" src="{logo_uri}" alt="Monash DeepNeuron" />'
+        f'<span class="ds-wordmark">DisasterSight</span></span></div></div>',
         unsafe_allow_html=True,
     )
 
@@ -45,10 +47,13 @@ def render_page_heading(title: str, subtitle: str = "") -> None:
 
 
 def render_footer(show_hitl: bool = False) -> None:
-    """Render the page footer with optional HITL banner."""
+    """Render the page footer with optional review reminder."""
     hitl = ""
     if show_hitl:
-        hitl = '<div class="ds-hitl">HUMAN-IN-THE-LOOP REQUIRED FOR ALL TRIAGE DECISIONS</div>'
+        hitl = (
+            '<p class="ds-footer-note">Model outputs require human review before any '
+            "operational use.</p>"
+        )
     st.markdown(
         f"{hitl}"
         f'<div class="ds-footer-bar">'

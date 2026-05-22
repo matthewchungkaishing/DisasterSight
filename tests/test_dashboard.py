@@ -719,7 +719,20 @@ class TestDashboardCaching(unittest.TestCase):
 class TestSceneViewerLayout(unittest.TestCase):
     """Pure layout sizing for the scene explorer."""
 
-    def test_square_image_caps_at_max_height(self) -> None:
+    def test_square_image_fills_slot_by_default(self) -> None:
+        from src.dashboard.components.scene_viewer_layout import compute_scene_viewer_layout
+
+        layout = compute_scene_viewer_layout(
+            1024,
+            1024,
+            estimated_container_width_px=960,
+        )
+        self.assertEqual(layout.pane_display_height_px, 480)
+        self.assertEqual(layout.pane_display_width_px, 480)
+        self.assertEqual(layout.pane_slot_width_px, 480)
+        self.assertEqual(layout.component_height_px, 480 + 44)
+
+    def test_square_image_caps_at_explicit_max_height(self) -> None:
         from src.dashboard.components.scene_viewer_layout import compute_scene_viewer_layout
 
         layout = compute_scene_viewer_layout(
@@ -729,10 +742,27 @@ class TestSceneViewerLayout(unittest.TestCase):
             estimated_container_width_px=960,
         )
         self.assertEqual(layout.pane_display_height_px, 420)
-        self.assertEqual(layout.component_height_px, 420 + 44 + 24)
+        self.assertEqual(layout.pane_display_width_px, 420)
+        self.assertEqual(layout.pane_slot_width_px, 480)
+        self.assertEqual(layout.component_height_px, 420 + 44)
+
+    def test_portrait_image_centers_with_narrower_pane(self) -> None:
+        from src.dashboard.components.scene_viewer_layout import compute_scene_viewer_layout
+
+        layout = compute_scene_viewer_layout(
+            800,
+            1200,
+            max_pane_height_px=420,
+            estimated_container_width_px=960,
+        )
+        self.assertEqual(layout.pane_display_height_px, 420)
+        self.assertEqual(layout.pane_display_width_px, 280)
 
     def test_wide_image_scales_by_width_before_cap(self) -> None:
-        from src.dashboard.components.scene_viewer_layout import compute_pane_display_height
+        from src.dashboard.components.scene_viewer_layout import (
+            compute_pane_display_height,
+            compute_pane_display_size,
+        )
 
         height = compute_pane_display_height(
             2048,
@@ -741,20 +771,61 @@ class TestSceneViewerLayout(unittest.TestCase):
             max_pane_height_px=420,
         )
         self.assertEqual(height, 240)
+        width, sized_height = compute_pane_display_size(
+            2048,
+            1024,
+            pane_slot_width_px=480,
+            max_pane_height_px=420,
+        )
+        self.assertEqual((width, sized_height), (480, 240))
 
     def test_layout_config_defaults_from_yaml(self) -> None:
         from src.dashboard.config import get_scene_viewer_layout_settings
 
         settings = get_scene_viewer_layout_settings()
-        self.assertEqual(settings["max_pane_height_px"], 420)
-        self.assertEqual(settings["estimated_container_width_px"], 960)
+        self.assertNotIn("max_pane_height_px", settings)
+        self.assertEqual(settings["estimated_container_width_px"], 1120)
+        self.assertEqual(settings["grid_padding_px"], 0)
+
+
+class TestMetricQuadrant(unittest.TestCase):
+    """Scene KPI quadrant HTML contract."""
+
+    def test_quadrant_has_four_ordered_cells(self) -> None:
+        from src.dashboard.components.metrics import build_quadrant_html, build_scene_metric_cells
+
+        cells = build_scene_metric_cells(159, 26.0, 158, {"minor_damage": 120, "major_damage": 30})
+        html_output = build_quadrant_html(cells)
+
+        self.assertIn('class="ds-metrics-quadrant"', html_output)
+        self.assertEqual(html_output.count("ds-metrics-quadrant__cell"), 4)
+        self.assertIn('data-metric="total_buildings"', html_output)
+        self.assertIn('data-metric="priority_score"', html_output)
+        self.assertIn('data-metric="review_count"', html_output)
+        self.assertIn('data-metric="dominant_class"', html_output)
+        self.assertNotIn("ds-metrics-stack", html_output)
+
+    def test_quadrant_cell_order(self) -> None:
+        from src.dashboard.components.metrics import build_quadrant_html, build_scene_metric_cells
+
+        cells = build_scene_metric_cells(1, 2.0, 3, {"destroyed": 1})
+        html_output = build_quadrant_html(cells)
+        total_idx = html_output.index("total_buildings")
+        priority_idx = html_output.index("priority_score")
+        review_idx = html_output.index("review_count")
+        dominant_idx = html_output.index("dominant_class")
+        self.assertLess(total_idx, priority_idx)
+        self.assertLess(priority_idx, review_idx)
+        self.assertLess(review_idx, dominant_idx)
 
 
 class TestImageViewer(unittest.TestCase):
     """Interactive image viewer HTML contract."""
 
-    def test_viewer_uses_aspect_panes_without_extra_background_layers(self) -> None:
-        from src.dashboard.components.image_viewer import (
+    def test_viewer_html_contract(self) -> None:
+        from pathlib import Path
+
+        from src.dashboard.components.scene_viewer import (
             CARD_BACKGROUND,
             ImagePane,
             build_scene_viewer_html,
@@ -786,14 +857,28 @@ class TestImageViewer(unittest.TestCase):
             layout,
         )
 
-        self.assertEqual(CARD_BACKGROUND, "#161B22")
-        self.assertIn("object-fit: contain", html_output)
-        self.assertIn("--pane-aspect: 1024 / 1024", html_output)
+        self.assertEqual(CARD_BACKGROUND, "#2A3348")
+        self.assertIn("scene-viewer__grid", html_output)
+        self.assertIn("gap: 0", html_output)
+        self.assertIn("padding: 0", html_output)
+        self.assertIn("pane-slot", html_output)
+        self.assertIn("pane-viewport", html_output)
+        self.assertIn("pane-layer", html_output)
         self.assertIn("--pane-max-height: 420px", html_output)
         self.assertIn("background: var(--card-bg)", html_output)
-        self.assertNotIn("--viewer-bg", html_output)
-        self.assertNotIn("image-stage", html_output)
         self.assertIn("open_in_full", html_output)
+        self.assertIn("close_fullscreen", html_output)
+        self.assertIn('data-mode-action="solo"', html_output)
+        self.assertIn('data-mode-action="split"', html_output)
+        self.assertIn("class PaneViewport", html_output)
+        self.assertNotIn("lightbox", html_output)
+        self.assertNotIn("object-fit: contain", html_output)
+        self.assertNotIn('target="_blank"', html_output)
+
+        viewer_js = Path("src/dashboard/components/scene_viewer/assets/viewer.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("class PaneViewport", viewer_js)
 
     def test_global_theme_uses_requested_background(self) -> None:
         theme_css = Path("src/dashboard/theme.css").read_text(encoding="utf-8")

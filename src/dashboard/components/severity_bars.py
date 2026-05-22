@@ -8,9 +8,21 @@ from src.common.constants import DAMAGE_CLASSES, OVERLAY_COLORS
 from src.dashboard.labels import display_label
 
 
-def render(class_counts: dict[str, int], total: int | None = None) -> None:
+def render(
+    class_counts: dict[str, int],
+    total: int | None = None,
+    *,
+    compact: bool = False,
+    sidebar: bool = False,
+) -> None:
     """Render horizontal severity bars for each damage class."""
     total = total or sum(class_counts.values()) or 1
+    panel_bits = ["ds-panel"]
+    if compact:
+        panel_bits.append("ds-panel--compact")
+    if sidebar:
+        panel_bits.append("ds-panel--sidebar")
+    panel_class = " ".join(panel_bits)
 
     rows = ""
     for label in reversed(DAMAGE_CLASSES):
@@ -25,7 +37,9 @@ def render(class_counts: dict[str, int], total: int | None = None) -> None:
             f'<div class="ds-sev-fill" style="width:{pct:.0f}%;background:{color}"></div></div>'
             f'<span class="ds-sev-pct">{pct:.0f}%</span></div>'
         )
-    st.markdown(
-        f'<div class="ds-panel"><h3 class="ds-panel-head">Severity Breakdown</h3>{rows}</div>',
-        unsafe_allow_html=True,
+    panel_html = (
+        f'<div class="{panel_class}"><h3 class="ds-panel-head">Severity Breakdown</h3>{rows}</div>'
     )
+    if sidebar:
+        panel_html = f'<div class="ds-hero-sidebar-severity">{panel_html}</div>'
+    st.markdown(panel_html, unsafe_allow_html=True)

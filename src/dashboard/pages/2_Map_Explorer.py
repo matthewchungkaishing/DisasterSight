@@ -10,7 +10,7 @@ from src.dashboard.navigation import focus_scene, set_active_page
 from src.dashboard.priority import rationale_text
 
 set_active_page("map_explorer")
-shell.render_topbar("default")
+shell.render_topbar()
 sidebar.render_sidebar_extras()
 
 shell.render_page_heading("Priority ranking", "Zones ordered by demo priority score")

@@ -70,8 +70,9 @@ inference:
   review_threshold: 0.5
 
 dashboard:
-  scene_explorer_max_pane_height_px: 420
-  scene_explorer_estimated_width_px: 960
+  # Match hero column width (~78% of main content) so iframe height tracks the viewer.
+  scene_explorer_estimated_width_px: 1120
+  scene_explorer_grid_padding_px: 0
 
 priority_score:
   destroyed_weight: 0.50

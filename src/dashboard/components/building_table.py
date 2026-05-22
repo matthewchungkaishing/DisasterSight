@@ -22,11 +22,21 @@ def _sort_key(pred: dict[str, Any]) -> tuple[int, float]:
     return (_SEVERITY_ORDER.get(label, 9), -float(pred.get("confidence", 0)))
 
 
-def render(predictions: list[dict[str, Any]], _scene_id: str, limit: int = 8) -> None:
+def render(
+    predictions: list[dict[str, Any]],
+    _scene_id: str,
+    limit: int = 8,
+    *,
+    compact: bool = False,
+) -> None:
     """Render a table of the top buildings ranked by damage severity."""
+    panel_class = "ds-panel ds-table-panel"
+    if compact:
+        panel_class += " ds-table-panel--compact"
+
     if not predictions:
         st.markdown(
-            '<div class="ds-panel ds-table-panel">'
+            f'<div class="{panel_class}">'
             '<div class="ds-panel-head bordered">Top buildings by severity</div>'
             '<p class="muted" style="color:#c2c6d6;padding:1rem">'
             "No predictions for this scene.</p></div>",
@@ -34,7 +44,8 @@ def render(predictions: list[dict[str, Any]], _scene_id: str, limit: int = 8) ->
         )
         return
 
-    sorted_preds = sorted(predictions, key=_sort_key)[:limit]
+    row_limit = 6 if compact else limit
+    sorted_preds = sorted(predictions, key=_sort_key)[:row_limit]
     body = ""
     for pred in sorted_preds:
         label = normalize_label(pred.get("predicted_label", ""))
@@ -53,7 +64,7 @@ def render(predictions: list[dict[str, Any]], _scene_id: str, limit: int = 8) ->
         )
 
     st.markdown(
-        f'<div class="ds-panel ds-table-panel">'
+        f'<div class="{panel_class}">'
         f'<div class="ds-panel-head bordered">Top buildings by severity</div>'
         f'<div class="ds-table-wrap"><table class="ds-table">'
         f"<thead><tr><th>ID</th><th>Predicted Class</th>"

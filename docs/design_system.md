@@ -21,16 +21,23 @@ Damage severity colors are defined in `src/common/constants.py` (`OVERLAY_COLORS
 ## Scene image viewer
 
 - Layout math lives in `src/dashboard/components/scene_viewer_layout.py` (pure, testable).
-- Rendering lives in `src/dashboard/components/image_viewer.py`; orchestration in `scene_explorer.py`.
-- Single card surface (`#161B22`) — no nested black/grey pane backgrounds; iframe body is transparent.
-- Panes use native image `aspect-ratio` with `object-fit: contain` so imagery scales within each pane without cropping (letterboxing may appear when aspect ratios differ).
-- Pane height cap: `dashboard.scene_explorer_max_pane_height_px` in `config.yaml` (default 420px).
+- Rendering lives in `src/dashboard/components/scene_viewer/` (`builder.py` + `assets/viewer.css` + `assets/viewer.js`); orchestration in `scene_explorer.py`.
+- Pre/post panes sit flush side-by-side (no grid gap). Images preserve aspect ratio without cropping; split mode aligns pre to the right edge and post to the left edge so the pair meets at the center seam.
+- Zoom (buttons, wheel) and drag-pan while zoomed use a per-pane viewport controller in `viewer.js`.
+- Full-width mode expands one pane across the card (open-in-full icon); close-fullscreen returns to the paired view.
+- Pane height auto-adapts to slot width. An explicit cap can be set via `dashboard.scene_explorer_max_pane_height_px` in `config.yaml` if needed.
 - Iframe height is computed from layout so content is not clipped on wide screens.
 
 ## Typography
 
 - UI: Inter (Google Fonts), fallback system-ui
 - IDs: IBM Plex Mono / ui-monospace
+
+## Dashboard page hierarchy
+
+- **Hero row** (~78% width): Scene Explorer; right sidebar with a **2×2 KPI quadrant** (`metrics/`), then Severity Breakdown below (padded separator).
+- **Table row**: Top buildings by severity under Scene Explorer (left column, same width as viewer).
+- Layout markers and column weights live in `dashboard_layout.py`; styles in `theme.css`.
 
 ## Spacing
 
