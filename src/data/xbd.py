@@ -3,13 +3,13 @@ from __future__ import annotations
 import json
 import re
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from src.common.constants import DAMAGE_CLASSES
 from src.common.paths import resolve_path
-
 
 SUPPORTED_EXTENSIONS = {".json", ".png", ".jpg", ".jpeg", ".tif", ".tiff"}
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}

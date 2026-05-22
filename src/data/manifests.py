@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import csv
 import random
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from src.data.xbd import (
     POST_IMAGE_KEY,
@@ -14,7 +14,6 @@ from src.data.xbd import (
     infer_disaster_type,
     is_complete_scene,
 )
-
 
 SCENE_MANIFEST_FIELDS = (
     "scene_id",

@@ -33,11 +33,14 @@ Required fields:
 |---|---|---|
 | `building_id` | `str` | Stable per-scene building identifier |
 | `scene_id` | `str` | Parent scene id |
-| `polygon_wkt` | `str` | Building polygon in WKT or equivalent serialized form |
-| `bbox_xyxy` | `list[int]` | Crop bounding box in pixel coordinates |
+| `geometry_source` | `str` | Source used to derive geometry, such as `wkt`, `geometry`, or `bbox` |
+| `polygon_xy` | `str` | JSON-serialized pixel-coordinate polygon points, or an empty list for bbox-only records |
+| `bbox_x1` / `bbox_y1` / `bbox_x2` / `bbox_y2` | `int` | Crop bounding box in pixel coordinates |
 | `damage_label` | `str` | One of configured damage classes |
 | `pre_crop_path` | `str` | Relative path to saved pre-disaster crop |
 | `post_crop_path` | `str` | Relative path to saved post-disaster crop |
+| `pre_masked_crop_path` | `str` | Optional relative path to masked pre-disaster crop |
+| `post_masked_crop_path` | `str` | Optional relative path to masked post-disaster crop |
 | `area_pixels` | `int` | Polygon or mask area in pixels |
 
 ## 3. Model Input Contract

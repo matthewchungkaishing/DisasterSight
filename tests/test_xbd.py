@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -197,6 +199,14 @@ class CropExtractionTests(unittest.TestCase):
                           "feature_type": "building",
                           "subtype": "destroyed"
                         }
+                      },
+                      {
+                        "wkt": "POLYGON ((4 4, 12 4, 12 12, 4 12, 4 4))",
+                        "properties": {
+                          "uid": "unknown-label",
+                          "feature_type": "building",
+                          "subtype": "un-classified"
+                        }
                       }
                     ]
                   }
@@ -225,6 +235,10 @@ class CropExtractionTests(unittest.TestCase):
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0].building_id, "building-a")
             self.assertEqual(records[0].damage_label, "major_damage")
+            self.assertEqual(
+                json.loads(records[0].polygon_xy),
+                [[4.0, 4.0], [12.0, 4.0], [12.0, 12.0], [4.0, 12.0]],
+            )
             self.assertEqual(records[0].split, "train")
 
             pre_crop_path = root / records[0].pre_crop_path
@@ -238,9 +252,12 @@ class CropExtractionTests(unittest.TestCase):
 
             manifest_path = root / "crop_manifest.csv"
             write_crop_manifest_csv(manifest_path, records)
-            manifest_text = manifest_path.read_text(encoding="utf-8")
-            self.assertIn("building-a", manifest_text)
-            self.assertIn("major_damage", manifest_text)
+            with manifest_path.open("r", encoding="utf-8", newline="") as handle:
+                manifest_rows = list(csv.DictReader(handle))
+
+            self.assertEqual(manifest_rows[0]["building_id"], "building-a")
+            self.assertEqual(manifest_rows[0]["damage_label"], "major_damage")
+            self.assertIn("polygon_xy", manifest_rows[0])
 
 
 if __name__ == "__main__":

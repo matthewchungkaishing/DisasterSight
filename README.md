@@ -1,168 +1,145 @@
 # DisasterSight
 
-DisasterSight is a local-first Streamlit dashboard for building-level post-disaster damage triage using xBD/xView2 pre-disaster and post-disaster satellite imagery.
+DisasterSight is a local-first Streamlit dashboard project for AI-assisted satellite damage triage using xBD/xView2 pre-disaster and post-disaster imagery.
 
-The MVP uses xBD-provided building polygons for localisation. It does not train or run a segmentation model yet. The initial pipeline is:
+The current baseline deliberately uses xBD-provided building polygons for localisation first. It does not train or run a segmentation model yet. This keeps the MVP reliable, testable, and aligned with the MDN proposal's must-have scope.
 
-1. Load a small xBD subset and pair pre/post scenes.
+DisasterSight is an academic decision-support prototype for human review. It is not an operational emergency-response or dispatch system.
+
+## MVP Pipeline
+
+1. Load an xBD/xView2 subset and pair pre/post scenes.
 2. Parse xBD building polygons and damage labels.
-3. Extract building-centered crops from pre/post imagery.
-4. Train a simple damage classifier on paired crops.
-5. Cache predictions for demo scenes.
-6. Visualise overlays, severity counts, priority scores, and review flags in Streamlit.
+3. Build event-aware train/validation/test scene manifests.
+4. Extract paired pre/post building crops from xBD polygons.
+5. Train a simple paired-crop damage classifier.
+6. Cache predictions for demo scenes.
+7. Display overlays, severity counts, priority score, confidence, review flags, and model evaluation in Streamlit.
 
-DisasterSight is an academic decision-support prototype for human review. It is not an operational emergency-response system.
+## Current Status
 
-## MVP Scope
+Implemented:
 
-Included now:
-- xBD/xView2 subset support
-- Polygon-based building crop workflow
-- Cached local demo outputs
-- Streamlit-first dashboard plan
-- Evaluation plan using macro F1 and confusion matrix
+- Config-driven project paths.
+- xBD scene discovery and pre/post pairing.
+- xBD annotation parsing for building polygons, bounding boxes, and canonical labels.
+- Event-aware scene manifest generation.
+- Paired pre/post crop extraction with crop manifest output.
+- Focused unit tests for parsing, manifests, and crop extraction.
 
-Explicitly out of scope for this phase:
-- U-Net or other building segmentation models
-- SpaceNet 8 roads or flooding analysis
-- FastAPI or React
-- Live satellite APIs
-- Production deployment claims
+Next:
+
+- Crop QA previews and metadata validation.
+- Baseline paired-image classifier.
+- Macro F1 and confusion matrix evaluation.
+- Cached prediction generation.
+- Streamlit dashboard integration.
+
+## Scope Control
+
+Included for this MVP:
+
+- xBD/xView2 as the primary dataset.
+- xBD polygon-based building localisation.
+- Simple paired-crop damage classification.
+- Cached local demo outputs.
+- Streamlit-first dashboard.
+- Responsible-AI framing and human review flags.
+
+Explicitly out of scope unless requested:
+
+- U-Net or other segmentation models.
+- SpaceNet 8 roads/flooding.
+- FastAPI backend.
+- React frontend.
+- Live satellite ingestion.
+- Cloud deployment.
+- Route optimisation.
+- Production emergency-response claims.
 
 ## Repository Layout
 
 ```text
 DisasterSight/
-├── config.yaml
-├── docs/
-│   ├── implementation_plan.md
-│   └── interface_contracts.md
-├── src/
-│   └── common/
-│       ├── constants.py
-│       └── paths.py
-├── .gitignore
-├── README.md
-└── requirements.txt
+  config.yaml
+  data/
+    README.md
+  docs/
+    implementation_plan.md
+    interface_contracts.md
+  src/
+    common/
+      constants.py
+      paths.py
+    data/
+      build_crop_manifest.py
+      build_scene_manifest.py
+      crop_extraction.py
+      xbd.py
+  tests/
+    test_xbd.py
+  README.md
+  requirements.txt
 ```
 
-Planned future directories:
+Generated local outputs are ignored by git:
 
 ```text
-data/
-├── raw/
-├── interim/
-├── processed/
-└── cache/
-
+data/raw/
+data/interim/
+data/processed/
+data/cache/
 artifacts/
-├── checkpoints/
-├── predictions/
-└── figures/
+outputs/
 ```
 
 ## Setup
 
-1. Create and activate a virtual environment.
-
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-```
-
-2. Install dependencies.
-
-```powershell
-pip install -r requirements.txt
-```
-
-3. Review and adjust local paths in `config.yaml`.
-
-4. When data is available, place xBD files under the configured `data/raw/xbd` directory.
-
-## Next Build Steps
-
-The next implementation milestone is:
-
-1. Finalize xBD scene/building manifests and inspect split quality.
-2. Implement polygon-to-crop extraction.
-3. Add crop QA previews and metadata validation.
-4. Add a baseline paired-image damage classifier.
-5. Add cached prediction loading for the Streamlit dashboard.
-
-## Suggested Run Order
-
-After this starter scaffold, the next commands to run are:
-
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-After that, start the first implementation task: dataset folder setup and xBD parsing.
+Place xBD files under the configured `paths.xbd_root` in `config.yaml`. By default, that is `data/raw/xbd`.
 
-## Scene Manifest
+## Run Order
 
-To build a general xBD scene manifest with event-aware train/validation/test splits, run:
+Build the scene manifest:
 
 ```powershell
 python -m src.data.build_scene_manifest
 ```
 
-The script writes `artifacts/manifests/scene_manifest.csv` and uses the split fractions and random seed from `config.yaml`.
-
-## Tests
-
-Run the current foundation tests with:
+Extract paired building crops:
 
 ```powershell
-python -m unittest discover -s tests
+python -m src.data.build_crop_manifest
 ```
 
-## Wildfire Discovery
+Optionally save masked crops for QA:
 
-If you want to begin with xBD wildfire or bushfire events only, run:
+```powershell
+python -m src.data.build_crop_manifest --save-masked
+```
+
+Preview a wildfire scene after creating the wildfire index:
 
 ```powershell
 python -m src.data.find_wildfire_events
-```
-
-The script will:
-- scan the configured `data/raw/xbd` tree
-- match wildfire-related filenames such as `wildfire`, `woolsey`, `carr`, and `portugal`
-- group matching files by scene id
-- report whether each scene has pre/post image and JSON files
-- save a CSV summary to `data/processed/wildfire_scene_index.csv`
-- print the top 10 complete wildfire scenes with all required files
-
-## Scene Preview QA
-
-To visually confirm that xBD pre/post imagery and annotation polygons are loading correctly before any crop generation or model training, run:
-
-```powershell
 python -m src.data.preview_xbd_scene --scene-id pinery-bushfire_00000000
 ```
 
-The script will:
-- read `xbd_root` and `processed_data_dir` from `config.yaml`
-- load `data/processed/wildfire_scene_index.csv`
-- find the pre/post image and JSON files for the requested scene
-- print a building-summary report with damage-label counts and sample bounding boxes
-- save a QA preview image to `outputs/figures/scene_previews/`
-
-## Wildfire Label Summary
-
-To rank wildfire or bushfire scenes by building-count and damage-label coverage before any crop generation or model training, run:
+Summarise wildfire label coverage:
 
 ```powershell
 python -m src.data.summarise_wildfire_labels
 ```
 
-The script will:
-- read `xbd_root` and `processed_data_dir` from `config.yaml`
-- load `data/processed/wildfire_scene_index.csv`
-- parse each complete scene's post-disaster annotation JSON
-- count per-scene damage labels and compute damage shares
-- save the results to `data/processed/wildfire_label_summary.csv`
-- print the top 20 candidate scenes for training selection
+## Quality Checks
+
+```powershell
+python -m ruff check .
+python -m unittest discover -s tests
+python -m compileall -q src tests
+```

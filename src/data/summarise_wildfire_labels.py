@@ -8,7 +8,6 @@ from pathlib import Path
 from src.common.paths import get_path_map, load_config
 from src.data.xbd import extract_building_annotations, load_json, resolve_scene_file
 
-
 SCENE_INDEX_NAME = "wildfire_scene_index.csv"
 SUMMARY_CSV_NAME = "wildfire_label_summary.csv"
 LABEL_COLUMNS = (

@@ -39,9 +39,9 @@ Current and future commands write generated data under configured local director
 - `data/processed/`: exploratory scene summaries and label summaries
 - `data/interim/`: intermediate crop metadata or QA tables
 - `data/cache/`: local dashboard caches
-- `artifacts/manifests/`: train/validation/test scene manifests
+- `artifacts/manifests/`: train/validation/test scene and crop manifests
 - `artifacts/predictions/`: cached model predictions
-- `outputs/figures/`: QA previews and evaluation figures
+- `artifacts/figures/`: QA previews and evaluation figures
 
 All of these paths are ignored by git by default.
 

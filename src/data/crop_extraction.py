@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import csv
+import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 from PIL import Image, ImageDraw
 
+from src.common.constants import DAMAGE_CLASSES
 from src.common.paths import PROJECT_ROOT, get_path_map, load_config, resolve_path
 from src.data.xbd import (
     POST_IMAGE_KEY,
@@ -19,7 +21,6 @@ from src.data.xbd import (
     load_json,
 )
 
-
 CROP_MANIFEST_FIELDS = (
     "building_id",
     "scene_id",
@@ -28,6 +29,7 @@ CROP_MANIFEST_FIELDS = (
     "split",
     "damage_label",
     "geometry_source",
+    "polygon_xy",
     "bbox_x1",
     "bbox_y1",
     "bbox_x2",
@@ -59,6 +61,7 @@ class CropRecord:
     split: str
     damage_label: str
     geometry_source: str
+    polygon_xy: str
     bbox_x1: int
     bbox_y1: int
     bbox_x2: int
@@ -144,12 +147,6 @@ def extract_crops_for_scene(
     post_image_path = _scene_path(record, "post_image_path", POST_IMAGE_KEY)
     post_json_path = _scene_path(record, "post_json_path", "label_json_path", POST_JSON_KEY)
 
-    pre_image = Image.open(pre_image_path).convert("RGB")
-    post_image = Image.open(post_image_path).convert("RGB")
-    image_width, image_height = pre_image.size
-    if post_image.size != pre_image.size:
-        raise ValueError(f"Pre/post image sizes differ for scene {scene_id}.")
-
     annotations = extract_building_annotations(load_json(post_json_path))
     scene_output_dir = crops_root / scene_id
     scene_output_dir.mkdir(parents=True, exist_ok=True)
@@ -159,52 +156,71 @@ def extract_crops_for_scene(
     split = str(record.get("split") or "")
 
     crop_records: list[CropRecord] = []
-    for annotation in annotations:
-        if annotation.label == "unclassified" or annotation.area_pixels < min_area_pixels:
-            continue
+    with Image.open(pre_image_path) as pre_source, Image.open(post_image_path) as post_source:
+        pre_image = pre_source.convert("RGB")
+        post_image = post_source.convert("RGB")
+        image_width, image_height = pre_image.size
+        if post_image.size != pre_image.size:
+            raise ValueError(f"Pre/post image sizes differ for scene {scene_id}.")
 
-        bbox_xyxy = pad_and_clamp_bbox(annotation.bbox_xyxy, padding, image_width, image_height)
-        x1, y1, x2, y2 = bbox_xyxy
-        if x2 <= x1 or y2 <= y1:
-            continue
+        for annotation in annotations:
+            if annotation.label not in DAMAGE_CLASSES or annotation.area_pixels < min_area_pixels:
+                continue
 
-        safe_building_id = _safe_filename(annotation.building_id)
-        pre_crop_path = scene_output_dir / f"{safe_building_id}_pre.png"
-        post_crop_path = scene_output_dir / f"{safe_building_id}_post.png"
-
-        extract_crop(pre_image, bbox_xyxy, target_size).save(pre_crop_path)
-        extract_crop(post_image, bbox_xyxy, target_size).save(post_crop_path)
-
-        pre_masked_path = None
-        post_masked_path = None
-        if save_masked:
-            pre_masked_path = scene_output_dir / f"{safe_building_id}_pre_masked.png"
-            post_masked_path = scene_output_dir / f"{safe_building_id}_post_masked.png"
-            create_masked_crop(pre_image, annotation, bbox_xyxy, target_size).save(pre_masked_path)
-            create_masked_crop(post_image, annotation, bbox_xyxy, target_size).save(post_masked_path)
-
-        crop_records.append(
-            CropRecord(
-                building_id=annotation.building_id,
-                scene_id=scene_id,
-                disaster_name=disaster_name,
-                disaster_type=disaster_type,
-                split=split,
-                damage_label=annotation.label,
-                geometry_source=annotation.geometry_source,
-                bbox_x1=x1,
-                bbox_y1=y1,
-                bbox_x2=x2,
-                bbox_y2=y2,
-                area_pixels=annotation.area_pixels,
-                crop_width=x2 - x1,
-                crop_height=y2 - y1,
-                pre_crop_path=_portable_path(pre_crop_path),
-                post_crop_path=_portable_path(post_crop_path),
-                pre_masked_crop_path=_portable_path(pre_masked_path) if pre_masked_path else "",
-                post_masked_crop_path=_portable_path(post_masked_path) if post_masked_path else "",
+            bbox_xyxy = pad_and_clamp_bbox(
+                annotation.bbox_xyxy,
+                padding,
+                image_width,
+                image_height,
             )
-        )
+            x1, y1, x2, y2 = bbox_xyxy
+            if x2 <= x1 or y2 <= y1:
+                continue
+
+            safe_building_id = _safe_filename(annotation.building_id)
+            pre_crop_path = scene_output_dir / f"{safe_building_id}_pre.png"
+            post_crop_path = scene_output_dir / f"{safe_building_id}_post.png"
+
+            extract_crop(pre_image, bbox_xyxy, target_size).save(pre_crop_path)
+            extract_crop(post_image, bbox_xyxy, target_size).save(post_crop_path)
+
+            pre_masked_path = None
+            post_masked_path = None
+            if save_masked:
+                pre_masked_path = scene_output_dir / f"{safe_building_id}_pre_masked.png"
+                post_masked_path = scene_output_dir / f"{safe_building_id}_post_masked.png"
+                create_masked_crop(pre_image, annotation, bbox_xyxy, target_size).save(
+                    pre_masked_path
+                )
+                create_masked_crop(post_image, annotation, bbox_xyxy, target_size).save(
+                    post_masked_path
+                )
+
+            crop_records.append(
+                CropRecord(
+                    building_id=annotation.building_id,
+                    scene_id=scene_id,
+                    disaster_name=disaster_name,
+                    disaster_type=disaster_type,
+                    split=split,
+                    damage_label=annotation.label,
+                    geometry_source=annotation.geometry_source,
+                    polygon_xy=json.dumps(annotation.polygon_xy, separators=(",", ":")),
+                    bbox_x1=x1,
+                    bbox_y1=y1,
+                    bbox_x2=x2,
+                    bbox_y2=y2,
+                    area_pixels=annotation.area_pixels,
+                    crop_width=x2 - x1,
+                    crop_height=y2 - y1,
+                    pre_crop_path=_portable_path(pre_crop_path),
+                    post_crop_path=_portable_path(post_crop_path),
+                    pre_masked_crop_path=_portable_path(pre_masked_path) if pre_masked_path else "",
+                    post_masked_crop_path=(
+                        _portable_path(post_masked_path) if post_masked_path else ""
+                    ),
+                )
+            )
 
     return crop_records
 

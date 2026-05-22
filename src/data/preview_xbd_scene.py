@@ -16,10 +16,9 @@ from src.data.xbd import (
     resolve_scene_file,
 )
 
-
 DEFAULT_SCENE_ID = "pinery-bushfire_00000000"
 SCENE_INDEX_NAME = "wildfire_scene_index.csv"
-PREVIEW_OUTPUT_DIR = PROJECT_ROOT / "outputs" / "figures" / "scene_previews"
+FALLBACK_FIGURES_DIR = PROJECT_ROOT / "outputs" / "figures"
 
 COLOR_BY_LABEL = {
     "no_damage": "#4CAF50",
@@ -51,8 +50,6 @@ def load_scene_row(index_csv_path: Path, scene_id: str) -> dict[str, str]:
                 return row
 
     raise ValueError(f"Scene '{scene_id}' was not found in {index_csv_path}.")
-
-
 
 
 def draw_annotations(image: Image.Image, annotations: list[BuildingAnnotation]) -> Image.Image:
@@ -97,7 +94,12 @@ def compose_preview(pre_image: Image.Image, post_image: Image.Image) -> Image.Im
 
     draw = ImageDraw.Draw(canvas)
     draw.text((8, 4), "Pre-disaster", fill="black", font=font)
-    draw.text((pre_image.width + spacer + 8, 4), "Post-disaster with annotations", fill="black", font=font)
+    draw.text(
+        (pre_image.width + spacer + 8, 4),
+        "Post-disaster with annotations",
+        fill="black",
+        font=font,
+    )
     return canvas
 
 
@@ -168,13 +170,13 @@ def main() -> int:
 
     print_summary(args.scene_id, pre_image_path, post_image_path, annotations)
 
-    pre_image = Image.open(pre_image_path)
-    post_image = Image.open(post_image_path)
-    annotated_post = draw_annotations(post_image, annotations)
-    preview_image = compose_preview(pre_image, annotated_post)
+    with Image.open(pre_image_path) as pre_image, Image.open(post_image_path) as post_image:
+        annotated_post = draw_annotations(post_image, annotations)
+        preview_image = compose_preview(pre_image, annotated_post)
 
-    PREVIEW_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = PREVIEW_OUTPUT_DIR / f"{args.scene_id}_preview.png"
+    output_dir = path_map.get("figures_dir", FALLBACK_FIGURES_DIR) / "scene_previews"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"{args.scene_id}_preview.png"
     preview_image.save(output_path)
     print("Saved preview image to:")
     print(output_path.resolve())

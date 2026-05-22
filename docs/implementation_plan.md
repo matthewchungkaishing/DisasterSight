@@ -17,7 +17,7 @@ Deliverables:
 
 ## Phase 0.5: Foundation Hardening
 
-Status: in progress.
+Status: complete.
 
 Deliverables:
 - `data/README.md` with local data policy and expected layout
@@ -32,6 +32,8 @@ Success criteria:
 
 ## Phase 1: Data Layout and xBD Parsing
 
+Status: complete.
+
 Deliverables:
 - `data/README.md`
 - Expected raw-data folder structure for xBD
@@ -45,6 +47,8 @@ Success criteria:
 
 ## Phase 2: Building Crop Extraction
 
+Status: complete.
+
 Deliverables:
 - Polygon-to-bounding-box crop extraction
 - Paired pre/post building crops
@@ -56,6 +60,8 @@ Success criteria:
 - A small sample can be visualized for QA.
 
 ## Phase 3: Baseline Damage Classifier
+
+Status: next.
 
 Deliverables:
 - Simple paired-image classifier baseline

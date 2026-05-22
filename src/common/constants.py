@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 PROJECT_NAME = "DisasterSight"
 DATASET_NAME = "xBD / xView2"
 

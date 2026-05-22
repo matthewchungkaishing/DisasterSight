@@ -14,7 +14,6 @@ from src.data.xbd import (
     scan_xbd_files,
 )
 
-
 WILDFIRE_KEYWORDS = (
     "wildfire",
     "wildfires",
