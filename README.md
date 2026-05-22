@@ -24,12 +24,13 @@ Implemented:
 - xBD scene discovery and pre/post pairing.
 - xBD annotation parsing for building polygons, bounding boxes, and canonical labels.
 - Event-aware scene manifest generation.
+- Deterministic small-subset scene manifests for controlled experiments.
 - Paired pre/post crop extraction with crop manifest output.
-- Focused unit tests for parsing, manifests, and crop extraction.
+- Crop manifest validation and QA contact-sheet generation.
+- Focused unit tests for parsing, manifests, crop extraction, and manifest validation.
 
 Next:
 
-- Crop QA previews and metadata validation.
 - Baseline paired-image classifier.
 - Macro F1 and confusion matrix evaluation.
 - Cached prediction generation.
@@ -112,6 +113,14 @@ Build the scene manifest:
 python -m src.data.build_scene_manifest
 ```
 
+The default config uses a deterministic three-event subset that keeps events
+whole while still producing train/validation/test splits. To build the full
+local manifest, run:
+
+```powershell
+python -m src.data.build_scene_manifest --all-scenes --output-name scene_manifest_full.csv
+```
+
 Extract paired building crops:
 
 ```powershell
@@ -122,6 +131,13 @@ Optionally save masked crops for QA:
 
 ```powershell
 python -m src.data.build_crop_manifest --save-masked
+```
+
+Validate the generated crop manifest and create a quick visual QA preview:
+
+```powershell
+python -m src.data.validate_crop_manifest
+python -m src.data.build_crop_qa_preview
 ```
 
 Preview a wildfire scene after creating the wildfire index:

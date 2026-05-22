@@ -39,6 +39,5 @@ PRIMARY_METRICS = (
 REVIEW_REQUIRED_LABEL = "review_required"
 
 PRIORITY_SCORE_FORMULA = (
-    "100 * (0.50 * destroyed_share + 0.30 * major_damage_share + "
-    "0.20 * damage_density)"
+    "100 * (0.50 * destroyed_share + 0.30 * major_damage_share + 0.20 * damage_density)"
 )

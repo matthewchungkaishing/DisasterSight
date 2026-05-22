@@ -78,8 +78,7 @@ def validate_config(config: dict[str, Any]) -> None:
             raise ValueError(f"Config dataset `{key}` must be positive.")
 
     split_total = sum(
-        float(dataset_config.get(key, 0.0))
-        for key in ("train_split", "val_split", "test_split")
+        float(dataset_config.get(key, 0.0)) for key in ("train_split", "val_split", "test_split")
     )
     if abs(split_total - 1.0) > 0.001:
         raise ValueError("Config train/val/test splits must sum to 1.0.")

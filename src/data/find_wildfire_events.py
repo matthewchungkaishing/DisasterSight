@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import sys
 from pathlib import Path
+from typing import Any
 
 from src.common.paths import get_path_map, load_config
 from src.data.xbd import (
@@ -26,7 +27,8 @@ WILDFIRE_KEYWORDS = (
     "portugal",
 )
 
-def write_scene_index_csv(output_path: Path, scenes: dict[str, dict[str, object]]) -> None:
+
+def write_scene_index_csv(output_path: Path, scenes: dict[str, dict[str, Any]]) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     fieldnames = [
@@ -68,7 +70,7 @@ def write_scene_index_csv(output_path: Path, scenes: dict[str, dict[str, object]
             )
 
 
-def print_scene_groups(scenes: dict[str, dict[str, object]]) -> None:
+def print_scene_groups(scenes: dict[str, dict[str, Any]]) -> None:
     if not scenes:
         print("No wildfire-related xBD files were found from the configured dataset root.")
         return
@@ -86,7 +88,7 @@ def print_scene_groups(scenes: dict[str, dict[str, object]]) -> None:
             print(f"  - {file_path}")
 
 
-def print_top_complete_scenes(scenes: dict[str, dict[str, object]], limit: int = 10) -> None:
+def print_top_complete_scenes(scenes: dict[str, dict[str, Any]], limit: int = 10) -> None:
     complete_scenes = [
         scenes[scene_id] for scene_id in sorted(scenes) if is_complete_scene(scenes[scene_id])
     ]

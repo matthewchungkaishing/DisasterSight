@@ -58,7 +58,7 @@ class BuildingAnnotation:
     @property
     def area_pixels(self) -> int:
         if len(self.polygon_xy) >= 3:
-            return int(round(abs(_shoelace_area(self.polygon_xy))))
+            return round(abs(_shoelace_area(self.polygon_xy)))
 
         x1, y1, x2, y2 = self.bbox_xyxy
         return max(0, x2 - x1) * max(0, y2 - y1)
@@ -108,7 +108,7 @@ def classify_file_role(path: Path) -> str | None:
     return None
 
 
-def empty_scene_record(scene_id: str = "") -> dict[str, object]:
+def empty_scene_record(scene_id: str = "") -> dict[str, Any]:
     return {
         "scene_id": scene_id,
         "disaster_name": extract_disaster_name(scene_id) if scene_id else "",
@@ -125,8 +125,8 @@ def empty_scene_record(scene_id: str = "") -> dict[str, object]:
 def scan_xbd_files(
     xbd_root: Path,
     keywords: Iterable[str] | None = None,
-) -> dict[str, dict[str, object]]:
-    scenes: dict[str, dict[str, object]] = defaultdict(empty_scene_record)
+) -> dict[str, dict[str, Any]]:
+    scenes: dict[str, dict[str, Any]] = defaultdict(empty_scene_record)
     keyword_list = tuple(keyword.lower() for keyword in keywords) if keywords else ()
 
     for path in xbd_root.rglob("*"):
@@ -155,7 +155,7 @@ def scan_xbd_files(
     return dict(scenes)
 
 
-def is_complete_scene(record: dict[str, object]) -> bool:
+def is_complete_scene(record: dict[str, Any]) -> bool:
     return all(bool(record.get(key)) for key in SCENE_FILE_KEYS)
 
 
@@ -167,7 +167,8 @@ def resolve_scene_file(path_value: str) -> Path:
 
 def load_json(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+        data: dict[str, Any] = json.load(handle)
+        return data
 
 
 def normalise_label(label: str | None) -> str:
@@ -261,12 +262,12 @@ def polygon_points_from_coordinates(value: Any) -> list[tuple[float, float]]:
         return []
 
     first = value[0]
-    if isinstance(first, list) and first and isinstance(first[0], (list, tuple)):
+    if isinstance(first, list) and first and isinstance(first[0], list | tuple):
         return polygon_points_from_coordinates(first)
 
     points: list[tuple[float, float]] = []
     for item in value:
-        if not isinstance(item, (list, tuple)) or len(item) < 2:
+        if not isinstance(item, list | tuple) or len(item) < 2:
             return []
         try:
             points.append((float(item[0]), float(item[1])))
@@ -280,10 +281,10 @@ def compute_bbox(points: list[tuple[float, float]]) -> tuple[int, int, int, int]
     xs = [point[0] for point in points]
     ys = [point[1] for point in points]
     return (
-        int(round(min(xs))),
-        int(round(min(ys))),
-        int(round(max(xs))),
-        int(round(max(ys))),
+        round(min(xs)),
+        round(min(ys)),
+        round(max(xs)),
+        round(max(ys)),
     )
 
 
@@ -306,14 +307,14 @@ def extract_building_annotations(annotation_data: dict[str, Any]) -> list[Buildi
             bbox_xyxy = compute_bbox(polygon_points)
         else:
             bbox_value = properties.get("bbox") or feature.get("bbox")
-            if isinstance(bbox_value, (list, tuple)) and len(bbox_value) >= 4:
+            if isinstance(bbox_value, list | tuple) and len(bbox_value) >= 4:
                 try:
                     x1, y1, x2, y2 = bbox_value[:4]
                     bbox_xyxy = (
-                        int(round(float(x1))),
-                        int(round(float(y1))),
-                        int(round(float(x2))),
-                        int(round(float(y2))),
+                        round(float(x1)),
+                        round(float(y1)),
+                        round(float(x2)),
+                        round(float(y2)),
                     )
                     geometry_source = "bbox"
                 except (TypeError, ValueError):

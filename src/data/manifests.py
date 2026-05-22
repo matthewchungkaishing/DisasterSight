@@ -4,6 +4,7 @@ import csv
 import random
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 from src.data.xbd import (
     POST_IMAGE_KEY,
@@ -29,7 +30,7 @@ SCENE_MANIFEST_FIELDS = (
 
 
 def build_scene_manifest_rows(
-    scenes: dict[str, dict[str, object]],
+    scenes: dict[str, dict[str, Any]],
     splits: dict[str, str] | None = None,
 ) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
@@ -61,7 +62,7 @@ def build_scene_manifest_rows(
 
 
 def build_event_aware_scene_manifest_rows(
-    scenes: dict[str, dict[str, object]],
+    scenes: dict[str, dict[str, Any]],
     *,
     train_fraction: float,
     val_fraction: float,
@@ -80,6 +81,60 @@ def build_event_aware_scene_manifest_rows(
         seed=seed,
     )
     return build_scene_manifest_rows(scenes, splits=splits)
+
+
+def select_scene_subset(
+    scenes: dict[str, dict[str, Any]],
+    *,
+    disaster_names: Iterable[str] | None = None,
+    disaster_types: Iterable[str] | None = None,
+    max_scenes: int | None = None,
+    seed: int,
+) -> dict[str, dict[str, Any]]:
+    """Filter complete scene records while keeping disaster events whole."""
+    if max_scenes is not None and max_scenes <= 0:
+        raise ValueError("max_scenes must be positive when provided.")
+
+    allowed_names = _normalise_filter_values(disaster_names)
+    allowed_types = _normalise_filter_values(disaster_types)
+    complete_scenes = {
+        scene_id: record
+        for scene_id, record in scenes.items()
+        if is_complete_scene(record)
+        and _record_matches_filters(record, allowed_names, allowed_types, scene_id)
+    }
+
+    if max_scenes is None or len(complete_scenes) <= max_scenes:
+        return dict(sorted(complete_scenes.items()))
+
+    scene_ids_by_event: dict[str, list[str]] = {}
+    for scene_id, record in complete_scenes.items():
+        event_name = str(record.get("disaster_name") or extract_disaster_name(scene_id))
+        scene_ids_by_event.setdefault(event_name, []).append(scene_id)
+
+    events = sorted(scene_ids_by_event)
+    rng = random.Random(seed)
+    rng.shuffle(events)
+
+    selected_scene_ids: list[str] = []
+    skipped_large_events: list[str] = []
+    for event in events:
+        event_scene_ids = sorted(scene_ids_by_event[event])
+        if len(event_scene_ids) > max_scenes:
+            skipped_large_events.append(event)
+            continue
+
+        if len(selected_scene_ids) + len(event_scene_ids) <= max_scenes:
+            selected_scene_ids.extend(event_scene_ids)
+
+    if not selected_scene_ids and skipped_large_events:
+        smallest_large_event = min(
+            skipped_large_events,
+            key=lambda event: len(scene_ids_by_event[event]),
+        )
+        selected_scene_ids.extend(sorted(scene_ids_by_event[smallest_large_event]))
+
+    return {scene_id: complete_scenes[scene_id] for scene_id in sorted(selected_scene_ids)}
 
 
 def make_event_aware_splits(
@@ -109,9 +164,16 @@ def make_event_aware_splits(
     assigned_train = 0
     assigned_val = 0
 
-    for event in events:
+    for event_index, event in enumerate(events):
         event_scene_ids = sorted(scene_ids_by_event[event])
-        if assigned_train < train_target:
+        remaining_events_after_this = len(events) - event_index - 1
+
+        if len(events) >= 3 and remaining_events_after_this == 0:
+            split = "test"
+        elif len(events) >= 3 and remaining_events_after_this == 1 and assigned_val == 0:
+            split = "val"
+            assigned_val += len(event_scene_ids)
+        elif assigned_train < train_target:
             split = "train"
             assigned_train += len(event_scene_ids)
         elif assigned_val < val_target:
@@ -124,6 +186,23 @@ def make_event_aware_splits(
             split_by_scene[scene_id] = split
 
     return split_by_scene
+
+
+def _normalise_filter_values(values: Iterable[str] | None) -> set[str]:
+    return {value.strip().lower() for value in values or () if value.strip()}
+
+
+def _record_matches_filters(
+    record: dict[str, Any],
+    disaster_names: set[str],
+    disaster_types: set[str],
+    scene_id: str,
+) -> bool:
+    disaster_name = str(record.get("disaster_name") or extract_disaster_name(scene_id)).lower()
+    disaster_type = str(record.get("disaster_type") or infer_disaster_type(scene_id)).lower()
+    if disaster_names and disaster_name not in disaster_names:
+        return False
+    return not (disaster_types and disaster_type not in disaster_types)
 
 
 def write_scene_manifest_csv(output_path: Path, rows: list[dict[str, str]]) -> None:

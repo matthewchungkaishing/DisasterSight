@@ -51,6 +51,12 @@ Required fields:
 | `post_masked_crop_path` | `str` | Optional relative path to masked post-disaster crop |
 | `area_pixels` | `int` | Polygon or mask area in pixels |
 
+Validation expectations:
+- Required crop paths must exist locally before training starts.
+- `damage_label` must be one of the configured damage classes.
+- `split` must be populated.
+- Bounding boxes and crop dimensions must be positive.
+
 ## 3. Model Input Contract
 
 The baseline classifier should consume:

@@ -35,6 +35,9 @@ python -m compileall -q src tests
 Before starting classifier work, confirm:
 
 - The scene manifest is generated from complete pre/post image and JSON pairs only.
+- Small-subset manifests are deterministic and keep disaster events whole.
 - The crop manifest has stable `scene_id`, `building_id`, `damage_label`, crop paths, polygon, bbox, and split fields.
+- The crop manifest passes `python -m src.data.validate_crop_manifest`.
+- A crop QA preview has been generated with `python -m src.data.build_crop_qa_preview`.
 - The label set remains `no_damage`, `minor_damage`, `major_damage`, and `destroyed`.
 - Any evaluation report includes macro F1 and a confusion matrix.

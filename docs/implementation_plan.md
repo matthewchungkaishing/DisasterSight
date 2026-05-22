@@ -47,31 +47,44 @@ Success criteria:
 
 ## Phase 2: Building Crop Extraction
 
-Status: complete.
+Status: complete, with validation gate added.
 
 Deliverables:
 - Polygon-to-bounding-box crop extraction
 - Paired pre/post building crops
 - Optional masked crops for debugging
 - Cached crop metadata CSV or Parquet
+- Crop manifest validation command
+- Crop QA preview contact sheet
 
 Success criteria:
 - Each crop record maps back to scene, building id, polygon, and label.
 - A small sample can be visualized for QA.
+- The crop manifest passes schema, path, label, split, and bbox validation.
 
 ## Phase 3: Baseline Damage Classifier
 
-Status: next.
+Status: in progress — model package, training script, and evaluation script created.
 
 Deliverables:
-- Simple paired-image classifier baseline
-- Training script with config-driven hyperparameters
-- Validation metrics: macro F1, confusion matrix
-- Small local checkpoint and training logs
+- Simple paired-image classifier baseline (ResNet-18, 6-channel pre+post input)
+- Training script with config-driven hyperparameters (`src/models/train.py`)
+- Evaluation script with macro F1, per-class F1, confusion matrix (`src/models/evaluate.py`)
+- Small local checkpoint and training logs under `artifacts/checkpoints/`
+- Confusion matrix figure saved to `artifacts/figures/`
+
+Class-imbalance note:
+The validated xBD crop set is heavily imbalanced (minor_damage is significantly
+under-represented).  `class_weight_strategy` in `config.yaml` controls how this
+is handled: `loss_weight` applies inverse-frequency weights to CrossEntropyLoss,
+`sampler` uses WeightedRandomSampler for balanced batches, and `both` combines them.
+Default is `loss_weight`.
 
 Success criteria:
-- End-to-end training runs on a subset.
+- End-to-end training runs on a subset without NaN loss.
+- Best checkpoint is saved by highest val macro F1.
 - Inference outputs include class probabilities and confidence.
+- Confusion matrix JSON and optional PNG are saved for dashboard use.
 
 ## Phase 4: Cached Inference Outputs
 

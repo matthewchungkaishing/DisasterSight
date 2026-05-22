@@ -1,0 +1,20 @@
+---
+description: Prevent scope creep beyond the MVP
+alwaysApply: true
+---
+
+# Scope Guard
+
+This is an academic prototype for Monash DeepNeuron. Do not implement unless explicitly requested:
+
+- U-Net or other segmentation models
+- SpaceNet 8 roads/flooding
+- FastAPI backend or React frontend
+- Live satellite ingestion or cloud deployment
+- Route optimisation or real emergency dispatch
+- Production operational claims
+
+Always frame outputs as:
+- Academic prototype and decision-support tool
+- Human-in-the-loop with review-required flags
+- Not suitable for autonomous emergency operations

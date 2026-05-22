@@ -19,6 +19,13 @@ paths:
 dataset:
   name: xbd
   use_small_subset: true
+  # Small subsets are selected by whole disaster events to avoid train/val/test leakage.
+  small_subset_max_scenes: 300
+  small_subset_disaster_names:
+    - guatemala-volcano
+    - mexico-earthquake
+    - palu-tsunami
+  small_subset_disaster_types: []
   subset_strategy: event_aware
   image_size: 224
   crop_padding_pixels: 12
@@ -48,6 +55,14 @@ training:
   learning_rate: 0.0003
   max_epochs: 10
   early_stopping_patience: 3
+  # Class-imbalance strategy for the xBD crop set (minor_damage is heavily under-represented).
+  # Options: loss_weight | sampler | both | none
+  # loss_weight: inverse-frequency weights on CrossEntropyLoss
+  # sampler:     WeightedRandomSampler so each class appears equally per epoch
+  # both:        apply both (strongest correction, can cause overfitting on small sets)
+  class_weight_strategy: loss_weight
+  backbone: resnet18
+  dropout: 0.3
 
 inference:
   cache_predictions: true

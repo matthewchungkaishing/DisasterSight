@@ -1,0 +1,59 @@
+.PHONY: lint lint-fix typecheck test compile-check quality train evaluate validate-crops qa-preview pipeline help
+
+PYTHON ?= python
+
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+
+# ---------------------------------------------------------------------------
+# Quality gates (match foundation_guardrails.md)
+# ---------------------------------------------------------------------------
+
+lint: ## Run ruff linter
+	$(PYTHON) -m ruff check .
+
+lint-fix: ## Run ruff with auto-fix
+	$(PYTHON) -m ruff check --fix .
+	$(PYTHON) -m ruff format .
+
+typecheck: ## Run mypy type checker
+	$(PYTHON) -m mypy src/ tests/
+
+test: ## Run unit tests
+	$(PYTHON) -m unittest discover -s tests
+
+compile-check: ## Verify all Python files compile
+	$(PYTHON) -m compileall -q src tests
+
+quality: lint typecheck test compile-check ## Run all quality gates
+
+# ---------------------------------------------------------------------------
+# Data pipeline
+# ---------------------------------------------------------------------------
+
+validate-crops: ## Validate the crop manifest
+	$(PYTHON) -m src.data.validate_crop_manifest
+
+qa-preview: ## Generate crop QA contact sheet
+	$(PYTHON) -m src.data.build_crop_qa_preview
+
+# ---------------------------------------------------------------------------
+# Model training and evaluation
+# ---------------------------------------------------------------------------
+
+train: ## Train the baseline damage classifier
+	$(PYTHON) -m src.models.train
+
+evaluate: ## Evaluate the trained classifier (requires CHECKPOINT arg)
+	$(PYTHON) -m src.models.evaluate --checkpoint $(CHECKPOINT) --save-figure
+
+# ---------------------------------------------------------------------------
+# Full pipeline
+# ---------------------------------------------------------------------------
+
+pipeline: ## Run full data pipeline: manifest -> crops -> validate -> QA
+	$(PYTHON) -m src.data.build_scene_manifest
+	$(PYTHON) -m src.data.build_crop_manifest
+	$(PYTHON) -m src.data.validate_crop_manifest
+	$(PYTHON) -m src.data.build_crop_qa_preview
+	@echo "Pipeline complete. Run 'make train' to start model training."

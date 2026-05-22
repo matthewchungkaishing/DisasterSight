@@ -123,12 +123,8 @@ def print_top_candidates(summaries: list[dict[str, object]], limit: int = 20) ->
     )
 
     print("Top 20 wildfire/bushfire candidate scenes:")
-    print(
-        " ".join(label.ljust(width) for label, width in headers)
-    )
-    print(
-        " ".join("-" * width for _, width in headers)
-    )
+    print(" ".join(label.ljust(width) for label, width in headers))
+    print(" ".join("-" * width for _, width in headers))
 
     for row in top_rows:
         values = (

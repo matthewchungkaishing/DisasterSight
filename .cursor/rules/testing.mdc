@@ -1,0 +1,16 @@
+---
+description: Testing conventions for DisasterSight
+globs: tests/**/*.py
+alwaysApply: false
+---
+
+# Testing Conventions
+
+- Use `unittest.TestCase` with `self.assert*` methods.
+- Use `tempfile.TemporaryDirectory` for any test that touches the filesystem.
+- Use `self.subTest()` for parameterised assertions.
+- Test names: `test_<what_it_verifies>` (e.g. `test_label_normalisation_uses_canonical_config_names`).
+- Test classes: `<Feature>Tests` (e.g. `XbdParsingTests`, `ManifestTests`).
+- Keep tests focused — one logical assertion per test method.
+- Do not import or depend on raw xBD data. Create synthetic fixtures.
+- Run with: `python -m unittest discover -s tests`

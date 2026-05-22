@@ -18,7 +18,9 @@ from src.data.manifests import (
     build_event_aware_scene_manifest_rows,
     build_scene_manifest_rows,
     make_event_aware_splits,
+    select_scene_subset,
 )
+from src.data.validate_crop_manifest import validate_crop_manifest
 from src.data.xbd import (
     POST_IMAGE_KEY,
     POST_JSON_KEY,
@@ -114,8 +116,8 @@ class XbdParsingTests(unittest.TestCase):
         self.assertTrue(is_complete_scene(record))
         self.assertEqual(record["disaster_name"], "pinery-bushfire")
         self.assertEqual(record["disaster_type"], "wildfire")
-        self.assertTrue(record[PRE_JSON_KEY].endswith("_pre_disaster.json"))
-        self.assertTrue(record[POST_IMAGE_KEY].endswith("_post_disaster.png"))
+        self.assertTrue(str(record[PRE_JSON_KEY]).endswith("_pre_disaster.json"))
+        self.assertTrue(str(record[POST_IMAGE_KEY]).endswith("_post_disaster.png"))
 
     def test_project_relative_path_keeps_repo_manifests_portable(self) -> None:
         path = PROJECT_ROOT / "data" / "raw" / "xbd" / "demo_pre_disaster.png"
@@ -154,6 +156,25 @@ class ManifestTests(unittest.TestCase):
                 split for scene_id, split in splits.items() if scene_id.startswith(event_name)
             }
             self.assertEqual(len(event_splits), 1)
+
+    def test_event_aware_splits_keep_val_and_test_for_small_imbalanced_subsets(self) -> None:
+        scene_ids = [
+            "large-event_00000001",
+            "large-event_00000002",
+            "large-event_00000003",
+            "medium-event_00000001",
+            "small-event_00000001",
+        ]
+
+        splits = make_event_aware_splits(
+            scene_ids,
+            train_fraction=0.7,
+            val_fraction=0.15,
+            test_fraction=0.15,
+            seed=42,
+        )
+
+        self.assertEqual(set(splits.values()), {"train", "val", "test"})
 
     def test_scene_manifest_rows_use_contract_field_names(self) -> None:
         scenes = {
@@ -208,6 +229,38 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["scene_id"], "complete-event_00000001")
         self.assertIn(rows[0]["split"], {"train", "val", "test"})
+
+    def test_scene_subset_filters_by_type_and_keeps_events_whole(self) -> None:
+        scenes: dict[str, dict[str, object]] = {}
+        for scene_id, disaster_type in (
+            ("large-fire_00000001", "wildfire"),
+            ("large-fire_00000002", "wildfire"),
+            ("small-fire_00000001", "wildfire"),
+            ("small-fire_00000002", "wildfire"),
+            ("flood-event_00000001", "flood"),
+        ):
+            scenes[scene_id] = {
+                "scene_id": scene_id,
+                "disaster_name": extract_disaster_name(scene_id),
+                "disaster_type": disaster_type,
+                PRE_IMAGE_KEY: "pre.png",
+                POST_IMAGE_KEY: "post.png",
+                PRE_JSON_KEY: "pre.json",
+                POST_JSON_KEY: "post.json",
+            }
+
+        subset = select_scene_subset(
+            scenes,
+            disaster_types=("wildfire",),
+            max_scenes=2,
+            seed=2,
+        )
+
+        self.assertEqual(set(subset), {"small-fire_00000001", "small-fire_00000002"})
+        self.assertEqual(
+            {record["disaster_type"] for record in subset.values()},
+            {"wildfire"},
+        )
 
 
 class ConfigGuardrailTests(unittest.TestCase):
@@ -317,6 +370,71 @@ class CropExtractionTests(unittest.TestCase):
             self.assertEqual(manifest_rows[0]["building_id"], "building-a")
             self.assertEqual(manifest_rows[0]["damage_label"], "major_damage")
             self.assertIn("polygon_xy", manifest_rows[0])
+
+    def test_validate_crop_manifest_checks_paths_labels_bboxes_and_splits(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            pre_crop_path = root / "pre.png"
+            post_crop_path = root / "post.png"
+            Image.new("RGB", (8, 8), (50, 50, 50)).save(pre_crop_path)
+            Image.new("RGB", (8, 8), (150, 150, 150)).save(post_crop_path)
+
+            manifest_path = root / "crop_manifest.csv"
+            with manifest_path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "building_id",
+                        "scene_id",
+                        "disaster_name",
+                        "disaster_type",
+                        "split",
+                        "damage_label",
+                        "geometry_source",
+                        "polygon_xy",
+                        "bbox_x1",
+                        "bbox_y1",
+                        "bbox_x2",
+                        "bbox_y2",
+                        "area_pixels",
+                        "crop_width",
+                        "crop_height",
+                        "pre_crop_path",
+                        "post_crop_path",
+                        "pre_masked_crop_path",
+                        "post_masked_crop_path",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "building_id": "building-a",
+                        "scene_id": "demo_00000001",
+                        "disaster_name": "demo",
+                        "disaster_type": "wildfire",
+                        "split": "train",
+                        "damage_label": "major_damage",
+                        "geometry_source": "wkt",
+                        "polygon_xy": "[]",
+                        "bbox_x1": "1",
+                        "bbox_y1": "1",
+                        "bbox_x2": "7",
+                        "bbox_y2": "7",
+                        "area_pixels": "36",
+                        "crop_width": "6",
+                        "crop_height": "6",
+                        "pre_crop_path": str(pre_crop_path),
+                        "post_crop_path": str(post_crop_path),
+                        "pre_masked_crop_path": "",
+                        "post_masked_crop_path": "",
+                    }
+                )
+
+            result = validate_crop_manifest(manifest_path, project_root=root)
+
+            self.assertTrue(result.passed)
+            self.assertEqual(result.row_count, 1)
+            self.assertEqual(result.class_counts["major_damage"], 1)
 
 
 if __name__ == "__main__":
