@@ -6,8 +6,10 @@ Shared constants, configuration loading, and path utilities used across all Disa
 
 ## Key files
 
-- `constants.py` — canonical damage classes, class-to-index mappings, overlay colours, metric names, priority score formula.
+- `constants.py` — canonical damage classes, class-to-index mappings, overlay colours, metric names.
 - `paths.py` — `load_config()`, `validate_config()`, `resolve_path()`, `project_relative_path()`, path maps.
+- `priority_score.py` — shared priority formula used by inference and dashboard (no Streamlit dependency).
+- `metrics_format.py` — shared eval-results → dashboard metrics normalization.
 
 ## Key conventions
 

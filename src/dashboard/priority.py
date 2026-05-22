@@ -1,43 +1,9 @@
-"""Priority score computation and zone-summary builder.
-
-Implements the MVP priority formula documented in
-``docs/interface_contracts.md`` (section 5).
-"""
+"""Priority score computation and zone-summary builder for the dashboard."""
 
 from __future__ import annotations
 
-from src.common.constants import DAMAGE_CLASSES
+from src.common.priority_score import compute_priority_score, compute_shares
 from src.dashboard.config import get_priority_weights
-
-
-def compute_shares(class_counts: dict[str, int], total: int) -> dict[str, float]:
-    """Compute destroyed share, major-damage share, and damage density."""
-    if total <= 0:
-        return {"destroyed_share": 0.0, "major_damage_share": 0.0, "damage_density": 0.0}
-    destroyed = class_counts.get("destroyed", 0)
-    major = class_counts.get("major_damage", 0)
-    damaged = sum(class_counts.get(c, 0) for c in DAMAGE_CLASSES if c != "no_damage")
-    return {
-        "destroyed_share": destroyed / total,
-        "major_damage_share": major / total,
-        "damage_density": damaged / total,
-    }
-
-
-def compute_priority_score(
-    destroyed_share: float,
-    major_damage_share: float,
-    damage_density: float,
-    weights: dict[str, float] | None = None,
-) -> float:
-    """Demo priority score per the interface contract formula."""
-    w = weights or get_priority_weights()
-    score = (
-        w["destroyed"] * destroyed_share
-        + w["major_damage"] * major_damage_share
-        + w["damage_density"] * damage_density
-    )
-    return round(100 * score, 1)
 
 
 def build_zone_summary(
@@ -48,10 +14,14 @@ def build_zone_summary(
     """Build a zone-summary record conforming to the Zone Summary Contract."""
     total = sum(class_counts.values())
     shares = compute_shares(class_counts, total)
+    weights = get_priority_weights()
     priority = compute_priority_score(
         shares["destroyed_share"],
         shares["major_damage_share"],
         shares["damage_density"],
+        destroyed_weight=weights["destroyed"],
+        major_damage_weight=weights["major_damage"],
+        damage_density_weight=weights["damage_density"],
     )
     return {
         "scene_id": scene_id,

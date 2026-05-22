@@ -83,7 +83,7 @@ class TestPriority(unittest.TestCase):
     """Priority score computation and zone-summary builder."""
 
     def test_compute_shares_all_destroyed(self) -> None:
-        from src.dashboard.priority import compute_shares
+        from src.common.priority_score import compute_shares
 
         counts = {"no_damage": 0, "minor_damage": 0, "major_damage": 0, "destroyed": 10}
         shares = compute_shares(counts, 10)
@@ -91,14 +91,14 @@ class TestPriority(unittest.TestCase):
         self.assertAlmostEqual(shares["damage_density"], 1.0)
 
     def test_compute_shares_zero_total(self) -> None:
-        from src.dashboard.priority import compute_shares
+        from src.common.priority_score import compute_shares
 
         shares = compute_shares({}, 0)
         self.assertEqual(shares["destroyed_share"], 0.0)
         self.assertEqual(shares["damage_density"], 0.0)
 
     def test_compute_shares_mixed(self) -> None:
-        from src.dashboard.priority import compute_shares
+        from src.common.priority_score import compute_shares
 
         counts = {"no_damage": 5, "minor_damage": 2, "major_damage": 2, "destroyed": 1}
         shares = compute_shares(counts, 10)
@@ -107,17 +107,29 @@ class TestPriority(unittest.TestCase):
         self.assertAlmostEqual(shares["damage_density"], 0.5)
 
     def test_compute_priority_score_max(self) -> None:
-        from src.dashboard.priority import compute_priority_score
+        from src.common.priority_score import compute_priority_score
 
-        weights = {"destroyed": 0.5, "major_damage": 0.3, "damage_density": 0.2}
-        score = compute_priority_score(1.0, 1.0, 1.0, weights=weights)
+        score = compute_priority_score(
+            1.0,
+            1.0,
+            1.0,
+            destroyed_weight=0.5,
+            major_damage_weight=0.3,
+            damage_density_weight=0.2,
+        )
         self.assertAlmostEqual(score, 100.0)
 
     def test_compute_priority_score_zero(self) -> None:
-        from src.dashboard.priority import compute_priority_score
+        from src.common.priority_score import compute_priority_score
 
-        weights = {"destroyed": 0.5, "major_damage": 0.3, "damage_density": 0.2}
-        score = compute_priority_score(0.0, 0.0, 0.0, weights=weights)
+        score = compute_priority_score(
+            0.0,
+            0.0,
+            0.0,
+            destroyed_weight=0.5,
+            major_damage_weight=0.3,
+            damage_density_weight=0.2,
+        )
         self.assertAlmostEqual(score, 0.0)
 
     def test_build_zone_summary_shape(self) -> None:
@@ -223,7 +235,8 @@ class TestArtifactResolver(unittest.TestCase):
         from src.dashboard.artifact_resolver import resolve_metrics
 
         paths = {"artifacts_dir": Path("/nonexistent"), "figures_dir": Path("/nonexistent")}
-        metrics = resolve_metrics(paths=paths)
+        metrics, is_fixture = resolve_metrics(paths=paths)
+        self.assertTrue(is_fixture)
         self.assertIn("macro_f1", metrics)
 
     def test_resolve_zone_summaries_fixture_fallback(self) -> None:
@@ -287,6 +300,295 @@ class TestArtifactResolver(unittest.TestCase):
         self.assertIsNone(resolve_confusion_matrix_image(paths=paths))
 
 
+class TestArtifactResolverCSV(unittest.TestCase):
+    """CSV artifact resolution — inference pipeline outputs."""
+
+    def _write_csv(self, path: Path, fieldnames: list[str], rows: list[dict[str, Any]]) -> None:
+        import csv as csv_mod
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8", newline="") as fh:
+            writer = csv_mod.DictWriter(fh, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+
+    def test_resolve_predictions_from_building_csv(self) -> None:
+        from src.dashboard.artifact_resolver import resolve_predictions
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pred_dir = Path(tmpdir) / "predictions"
+            fields = [
+                "scene_id",
+                "building_id",
+                "disaster_name",
+                "disaster_type",
+                "split",
+                "true_label",
+                "predicted_label",
+                "confidence",
+                "needs_review",
+                "class_probabilities",
+                "polygon_xy",
+                "bbox_x1",
+                "bbox_y1",
+                "bbox_x2",
+                "bbox_y2",
+                "pre_crop_path",
+                "post_crop_path",
+            ]
+            p_a = '{"no_damage":0.02,"minor_damage":0.03,"major_damage":0.03,"destroyed":0.92}'
+            p_b = '{"no_damage":0.88,"minor_damage":0.08,"major_damage":0.03,"destroyed":0.01}'
+            rows = [
+                {
+                    "scene_id": "scene-A",
+                    "building_id": "b1",
+                    "disaster_name": "test-event",
+                    "disaster_type": "earthquake",
+                    "split": "test",
+                    "true_label": "destroyed",
+                    "predicted_label": "destroyed",
+                    "confidence": "0.92",
+                    "needs_review": "False",
+                    "class_probabilities": p_a,
+                    "polygon_xy": "[]",
+                    "bbox_x1": "10",
+                    "bbox_y1": "20",
+                    "bbox_x2": "50",
+                    "bbox_y2": "60",
+                    "pre_crop_path": "crops/a_pre.png",
+                    "post_crop_path": "crops/a_post.png",
+                },
+                {
+                    "scene_id": "scene-B",
+                    "building_id": "b2",
+                    "disaster_name": "other",
+                    "disaster_type": "flood",
+                    "split": "test",
+                    "true_label": "no_damage",
+                    "predicted_label": "no_damage",
+                    "confidence": "0.88",
+                    "needs_review": "False",
+                    "class_probabilities": p_b,
+                    "polygon_xy": "[]",
+                    "bbox_x1": "0",
+                    "bbox_y1": "0",
+                    "bbox_x2": "30",
+                    "bbox_y2": "30",
+                    "pre_crop_path": "",
+                    "post_crop_path": "",
+                },
+            ]
+            self._write_csv(pred_dir / "building_predictions_test.csv", fields, rows)
+            paths = {"predictions_dir": pred_dir}
+
+            result = resolve_predictions("scene-A", paths=paths)
+            self.assertEqual(len(result), 1)
+            self.assertEqual(result[0]["building_id"], "b1")
+            self.assertAlmostEqual(result[0]["confidence"], 0.92)
+            self.assertFalse(result[0]["needs_review"])
+            self.assertEqual(result[0]["bbox_x2"], 50)
+            self.assertIsInstance(result[0]["class_probabilities"], dict)
+
+    def test_resolve_predictions_csv_type_coercion(self) -> None:
+        from src.dashboard.artifact_resolver import resolve_predictions
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pred_dir = Path(tmpdir) / "predictions"
+            fields = [
+                "scene_id",
+                "building_id",
+                "disaster_name",
+                "disaster_type",
+                "split",
+                "true_label",
+                "predicted_label",
+                "confidence",
+                "needs_review",
+                "class_probabilities",
+                "polygon_xy",
+                "bbox_x1",
+                "bbox_y1",
+                "bbox_x2",
+                "bbox_y2",
+                "pre_crop_path",
+                "post_crop_path",
+            ]
+            rows = [
+                {
+                    "scene_id": "s1",
+                    "building_id": "b1",
+                    "disaster_name": "e",
+                    "disaster_type": "wildfire",
+                    "split": "test",
+                    "true_label": "minor_damage",
+                    "predicted_label": "minor_damage",
+                    "confidence": "0.55",
+                    "needs_review": "True",
+                    "class_probabilities": "{}",
+                    "polygon_xy": "[]",
+                    "bbox_x1": "5",
+                    "bbox_y1": "5",
+                    "bbox_x2": "15",
+                    "bbox_y2": "15",
+                    "pre_crop_path": "",
+                    "post_crop_path": "",
+                }
+            ]
+            self._write_csv(pred_dir / "building_predictions_test.csv", fields, rows)
+            paths = {"predictions_dir": pred_dir}
+
+            result = resolve_predictions("s1", paths=paths)
+            self.assertTrue(result[0]["needs_review"])
+            self.assertEqual(result[0]["bbox_x1"], 5)
+
+    def test_resolve_zone_summaries_from_scene_summary_csv(self) -> None:
+        from src.dashboard.artifact_resolver import resolve_zone_summaries
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pred_dir = Path(tmpdir) / "predictions"
+            fields = [
+                "scene_id",
+                "disaster_name",
+                "disaster_type",
+                "split",
+                "total_buildings",
+                "class_counts",
+                "destroyed_share",
+                "major_damage_share",
+                "damage_density",
+                "priority_score",
+                "review_flag_count",
+                "mean_confidence",
+            ]
+            cc_s1 = '{"no_damage":2,"minor_damage":2,"major_damage":2,"destroyed":4}'
+            cc_s2 = '{"no_damage":4,"minor_damage":1,"major_damage":0,"destroyed":0}'
+            rows = [
+                {
+                    "scene_id": "s1",
+                    "disaster_name": "event-A",
+                    "disaster_type": "earthquake",
+                    "split": "test",
+                    "total_buildings": "10",
+                    "class_counts": cc_s1,
+                    "destroyed_share": "0.4",
+                    "major_damage_share": "0.2",
+                    "damage_density": "0.8",
+                    "priority_score": "46.0",
+                    "review_flag_count": "2",
+                    "mean_confidence": "0.75",
+                },
+                {
+                    "scene_id": "s2",
+                    "disaster_name": "event-B",
+                    "disaster_type": "flood",
+                    "split": "test",
+                    "total_buildings": "5",
+                    "class_counts": cc_s2,
+                    "destroyed_share": "0.0",
+                    "major_damage_share": "0.0",
+                    "damage_density": "0.2",
+                    "priority_score": "4.0",
+                    "review_flag_count": "0",
+                    "mean_confidence": "0.88",
+                },
+            ]
+            self._write_csv(pred_dir / "scene_summaries_test.csv", fields, rows)
+            paths = {
+                "predictions_dir": pred_dir,
+                "artifacts_dir": Path("/nonexistent"),
+                "processed_data_dir": Path("/nonexistent"),
+            }
+
+            records, is_fixture = resolve_zone_summaries(paths=paths)
+            self.assertFalse(is_fixture)
+            self.assertEqual(len(records), 2)
+            # Sorted by priority descending
+            self.assertEqual(records[0]["scene_id"], "s1")
+            self.assertAlmostEqual(records[0]["priority_score"], 46.0)
+            self.assertIsInstance(records[0]["class_counts"], dict)
+            self.assertEqual(records[0]["total_buildings"], 10)
+
+    def test_normalize_eval_metrics_from_eval_results_json(self) -> None:
+        from src.common.metrics_format import format_dashboard_metrics
+
+        raw = {
+            "split": "test",
+            "num_samples": 1000,
+            "macro_f1": 0.812,
+            "precision_macro": 0.835,
+            "recall_macro": 0.798,
+            "mean_confidence": 0.71,
+            "low_confidence_count": 42,
+            "per_class_f1": {
+                "no_damage": 0.9,
+                "minor_damage": 0.7,
+                "major_damage": 0.8,
+                "destroyed": 0.85,
+            },
+            "confusion_matrix": {
+                "classes": ["no_damage", "minor_damage", "major_damage", "destroyed"],
+                "matrix": [
+                    [90, 5, 3, 2],
+                    [4, 70, 15, 11],
+                    [3, 12, 75, 10],
+                    [2, 4, 8, 86],
+                ],
+            },
+        }
+        result = format_dashboard_metrics(raw)
+        self.assertIn("macro_f1", result)
+        self.assertAlmostEqual(result["macro_f1"], 0.812)
+        self.assertAlmostEqual(result["precision_macro"], 0.835)
+        self.assertEqual(result["validation_patches"], 1000)
+        self.assertEqual(len(result["confusion_matrix"]), 4)
+        # Row sums of normalized matrix should be ~1.0
+        for row in result["confusion_matrix"]:
+            self.assertAlmostEqual(sum(row), 1.0, places=2)
+
+    def test_resolve_metrics_from_eval_results_json(self) -> None:
+        from src.dashboard.artifact_resolver import resolve_metrics
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            figures = Path(tmpdir) / "figures"
+            figures.mkdir()
+            eval_data = {
+                "split": "test",
+                "num_samples": 500,
+                "macro_f1": 0.75,
+                "precision_macro": 0.78,
+                "recall_macro": 0.72,
+                "mean_confidence": 0.68,
+                "low_confidence_count": 30,
+                "per_class_f1": {},
+                "confusion_matrix": {
+                    "classes": ["no_damage", "minor_damage", "major_damage", "destroyed"],
+                    "matrix": [[10, 0, 0, 0], [0, 10, 0, 0], [0, 0, 10, 0], [0, 0, 0, 10]],
+                },
+            }
+            (figures / "eval_results_test.json").write_text(json.dumps(eval_data), encoding="utf-8")
+            paths = {
+                "artifacts_dir": Path("/nonexistent"),
+                "figures_dir": figures,
+            }
+            result, is_fixture = resolve_metrics(paths=paths)
+            self.assertFalse(is_fixture)
+            self.assertAlmostEqual(result["macro_f1"], 0.75)
+            self.assertIn("confusion_matrix", result)
+
+    def test_resolve_confusion_matrix_image_split_named(self) -> None:
+        from src.dashboard.artifact_resolver import resolve_confusion_matrix_image
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            figures = Path(tmpdir) / "figures"
+            figures.mkdir()
+            img_path = figures / "confusion_matrix_test.png"
+            img_path.write_bytes(b"fake png")
+            paths = {"figures_dir": figures}
+            result = resolve_confusion_matrix_image(paths=paths)
+            self.assertIsNotNone(result)
+            self.assertEqual(result, img_path)
+
+
 class TestOverlays(unittest.TestCase):
     """Overlay drawing and image helpers."""
 
@@ -337,6 +639,89 @@ class TestOverlays(unittest.TestCase):
         self.assertEqual(result.mode, "RGB")
         result_arr = np.array(result)
         self.assertTrue(result_arr.max() > 0)
+
+    def test_has_valid_bboxes_with_valid_coords(self) -> None:
+        from src.dashboard.overlays import _has_valid_bboxes
+
+        preds = [{"bbox_x1": 10, "bbox_y1": 20, "bbox_x2": 50, "bbox_y2": 60}]
+        self.assertTrue(_has_valid_bboxes(preds))
+
+    def test_has_valid_bboxes_with_zero_coords(self) -> None:
+        from src.dashboard.overlays import _has_valid_bboxes
+
+        preds = [{"bbox_x1": 0, "bbox_y1": 0, "bbox_x2": 0, "bbox_y2": 0}]
+        self.assertFalse(_has_valid_bboxes(preds))
+
+    def test_has_valid_bboxes_empty(self) -> None:
+        from src.dashboard.overlays import _has_valid_bboxes
+
+        self.assertFalse(_has_valid_bboxes([]))
+
+    def test_draw_bbox_overlays_with_valid_bbox(self) -> None:
+        from src.dashboard.overlays import draw_bbox_overlays
+
+        img = Image.fromarray(np.zeros((200, 200, 3), dtype=np.uint8))
+        preds = [
+            {
+                "predicted_label": "destroyed",
+                "needs_review": False,
+                "bbox_x1": 10,
+                "bbox_y1": 10,
+                "bbox_x2": 50,
+                "bbox_y2": 50,
+            }
+        ]
+        result = draw_bbox_overlays(img, preds, opacity=0.5)
+        self.assertEqual(result.size, (200, 200))
+        self.assertEqual(result.mode, "RGB")
+        result_arr = np.array(result)
+        # Pixels inside the bbox region should be non-zero
+        self.assertTrue(result_arr[20:40, 20:40].max() > 0)
+
+    def test_draw_bbox_overlays_clamps_out_of_bounds(self) -> None:
+        from src.dashboard.overlays import draw_bbox_overlays
+
+        img = Image.fromarray(np.zeros((100, 100, 3), dtype=np.uint8))
+        preds = [
+            {
+                "predicted_label": "major_damage",
+                "needs_review": False,
+                "bbox_x1": -5,
+                "bbox_y1": -5,
+                "bbox_x2": 200,
+                "bbox_y2": 200,
+            }
+        ]
+        # Should not raise; out-of-bounds coords are clamped to image size
+        result = draw_bbox_overlays(img, preds)
+        self.assertEqual(result.size, (100, 100))
+
+    def test_draw_prediction_overlays_uses_bbox_when_available(self) -> None:
+        from src.dashboard.overlays import draw_prediction_overlays
+
+        img = Image.fromarray(np.zeros((200, 200, 3), dtype=np.uint8))
+        preds = [
+            {
+                "predicted_label": "destroyed",
+                "needs_review": False,
+                "bbox_x1": 40,
+                "bbox_y1": 40,
+                "bbox_x2": 80,
+                "bbox_y2": 80,
+            }
+        ]
+        result = draw_prediction_overlays(img, preds)
+        self.assertEqual(result.size, (200, 200))
+        result_arr = np.array(result)
+        self.assertTrue(result_arr.max() > 0)
+
+    def test_draw_prediction_overlays_falls_back_to_demo_without_bbox(self) -> None:
+        from src.dashboard.overlays import draw_prediction_overlays
+
+        img = Image.fromarray(np.zeros((200, 200, 3), dtype=np.uint8))
+        preds = [{"predicted_label": "no_damage", "needs_review": False}]
+        result = draw_prediction_overlays(img, preds)
+        self.assertEqual(result.size, (200, 200))
 
 
 if __name__ == "__main__":

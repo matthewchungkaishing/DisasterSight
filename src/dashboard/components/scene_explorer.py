@@ -7,7 +7,7 @@ from typing import Any
 import streamlit as st
 
 from src.dashboard.artifact_resolver import scene_image_sources
-from src.dashboard.overlays import draw_demo_overlays, load_display_image
+from src.dashboard.overlays import draw_prediction_overlays, load_display_image
 from src.dashboard.styles import icon
 
 
@@ -29,7 +29,7 @@ def render(
     pre_img = load_display_image(pre_path, "Pre-disaster")
     post_img = load_display_image(post_path, "Post-disaster")
     if show_overlays:
-        post_img = draw_demo_overlays(post_img, predictions, opacity=overlay_opacity)
+        post_img = draw_prediction_overlays(post_img, predictions, opacity=overlay_opacity)
 
     st.markdown(
         f'<div class="ds-scene-card-head" style="background:#171c21;border:1px solid #2d3a4f;'

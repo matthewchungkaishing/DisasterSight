@@ -68,7 +68,13 @@ def load_predictions(scene_id: str) -> list[dict[str, Any]]:
 @st.cache_data(show_spinner=False)
 def load_metrics() -> dict[str, Any]:
     """Cached evaluation-metrics loader."""
-    return resolve_metrics()
+    metrics, is_fixture = resolve_metrics()
+    if is_fixture:
+        _warn_fixture(
+            "Using demo metrics fixtures — run evaluate with --save-figure "
+            "to write artifacts/metrics.json from real model outputs."
+        )
+    return metrics
 
 
 def get_scene_by_id(scene_id: str) -> dict[str, Any] | None:

@@ -64,7 +64,7 @@ Success criteria:
 
 ## Phase 3: Baseline Damage Classifier
 
-Status: in progress — model package, training script, and evaluation script created.
+Status: complete — model package, training script, evaluation script, and dashboard metrics export implemented.
 
 Deliverables:
 - Simple paired-image classifier baseline (ResNet-18, 6-channel pre+post input)
@@ -103,11 +103,12 @@ Success criteria:
 
 ## Phase 5: Streamlit Dashboard
 
-Status: complete.
+Status: complete — artifact resolution hardened for real pipeline outputs.
 
 Architecture:
 - Pure artifact resolution layer (`artifact_resolver.py`) decoupled from Streamlit
-- Thin Streamlit-cached facade (`data_loaders.py`)
+- Shared domain logic in `src/common/` (`priority_score.py`, `metrics_format.py`)
+- Thin Streamlit-cached facade (`data_loaders.py`) with fixture-fallback warnings
 - Reusable UI components under `src/dashboard/components/`
 - Multi-page navigation via `st.navigation`
 - Custom dark theme with Material Design icons

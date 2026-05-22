@@ -124,22 +124,15 @@ with right:
                 )
             grid += "</div>"
             st.markdown(grid, unsafe_allow_html=True)
+            if len(failures) > 4:
+                with st.expander(f"View all {len(failures)} failure cases"):
+                    for path in failures[4:]:
+                        st.image(str(path), caption=path.stem.replace("_", " ").title())
         else:
-            placeholders = [
-                ("Cloud Shadow False Pos.", "#1a2838"),
-                ("Canopy Occlusion", "#1e3028"),
-                ("Arid Terrain Confusion", "#2a2418"),
-                ("View Full Catalog (42 items)", "#161b22"),
-            ]
-            grid = '<div class="ds-failure-grid">'
-            for title, color in placeholders:
-                grid += (
-                    f'<div class="ds-failure-thumb" style="background:{color}">'
-                    f'<div class="ds-failure-caption">{title}</div></div>'
-                )
-            grid += "</div>"
-            st.markdown(grid, unsafe_allow_html=True)
-        with st.expander("View Full Catalog (42 items)"):
-            st.caption("Add thumbnails under `artifacts/figures/failures/`.")
+            st.info(
+                "No failure-case thumbnails found. "
+                "Run `make evaluate CHECKPOINT=... --save-figure` then place "
+                "representative failure crops under `artifacts/figures/failures/`."
+            )
 
 shell.render_footer(show_hitl=True)

@@ -1,4 +1,4 @@
-.PHONY: lint lint-fix typecheck test compile-check quality train evaluate predictions validate-crops qa-preview pipeline dashboard help
+.PHONY: lint lint-fix typecheck test compile-check quality train evaluate predictions validate-crops qa-preview pipeline full-pipeline dashboard help
 
 PYTHON ?= python
 
@@ -58,12 +58,19 @@ dashboard: ## Launch the Streamlit dashboard
 	streamlit run src/dashboard/app.py
 
 # ---------------------------------------------------------------------------
-# Full pipeline
+# Full pipeline (data → train → evaluate → cache → dashboard)
 # ---------------------------------------------------------------------------
 
-pipeline: ## Run full data pipeline: manifest -> crops -> validate -> QA
+pipeline: ## Run data pipeline: manifest -> crops -> validate -> QA
 	$(PYTHON) -m src.data.build_scene_manifest
 	$(PYTHON) -m src.data.build_crop_manifest
 	$(PYTHON) -m src.data.validate_crop_manifest
 	$(PYTHON) -m src.data.build_crop_qa_preview
-	@echo "Pipeline complete. Run 'make train' to start model training."
+	@echo "Data pipeline complete. Run 'make train' then 'make evaluate CHECKPOINT=...' and 'make predictions CHECKPOINT=...'."
+
+full-pipeline: ## Run end-to-end: data -> train -> evaluate -> predictions
+	$(MAKE) pipeline
+	$(MAKE) train
+	$(MAKE) evaluate CHECKPOINT=artifacts/checkpoints/best_classifier.pt
+	$(MAKE) predictions CHECKPOINT=artifacts/checkpoints/best_classifier.pt
+	@echo "Full pipeline complete. Run 'make dashboard' to view real artifacts."

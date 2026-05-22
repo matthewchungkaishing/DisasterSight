@@ -14,7 +14,6 @@ from typing import Any
 from src.common.paths import PROJECT_ROOT, load_config, resolve_path
 
 DASHBOARD_ROOT = Path(__file__).parent
-FIXTURES_DIR = DASHBOARD_ROOT / "fixtures"
 
 
 @functools.lru_cache(maxsize=1)

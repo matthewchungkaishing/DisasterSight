@@ -28,10 +28,13 @@ from sklearn.metrics import (
     classification_report,
     confusion_matrix,
     f1_score,
+    precision_score,
+    recall_score,
 )
 from torch.utils.data import DataLoader
 
 from src.common.constants import DAMAGE_CLASSES
+from src.common.metrics_format import format_dashboard_metrics
 from src.common.paths import ensure_project_dirs, load_config
 from src.models.classifier import PairedCropClassifier
 from src.models.crop_dataset import NUM_CLASSES, CropDataset
@@ -136,6 +139,7 @@ def evaluate(
     batch_size: int = 16,
     num_workers: int = 2,
     save_figure: bool = False,
+    artifacts_dir: Path | None = None,
     figures_dir: Path | None = None,
 ) -> dict:
     """Run inference on ``split``, compute metrics, and return a result dict."""
@@ -200,6 +204,24 @@ def evaluate(
             labels=list(range(NUM_CLASSES)),
         )
     )
+    precision_macro = float(
+        precision_score(
+            all_labels,
+            all_preds,
+            average="macro",
+            zero_division=0,
+            labels=list(range(NUM_CLASSES)),
+        )
+    )
+    recall_macro = float(
+        recall_score(
+            all_labels,
+            all_preds,
+            average="macro",
+            zero_division=0,
+            labels=list(range(NUM_CLASSES)),
+        )
+    )
     per_class_f1 = f1_score(
         all_labels,
         all_preds,
@@ -220,7 +242,12 @@ def evaluate(
     low_confidence_count = sum(1 for c in all_confidences if c < 0.5)
 
     log.info("\n%s split evaluation (%d samples)", split.upper(), len(all_labels))
-    log.info("Macro F1: %.4f", macro_f1)
+    log.info(
+        "Macro F1: %.4f | Precision: %.4f | Recall: %.4f",
+        macro_f1,
+        precision_macro,
+        recall_macro,
+    )
     log.info(
         "Per-class F1:\n%s",
         "\n".join(f"  {DAMAGE_CLASSES[i]:>15}: {per_class_f1[i]:.4f}" for i in range(NUM_CLASSES)),
@@ -241,7 +268,9 @@ def evaluate(
     result = {
         "split": split,
         "num_samples": len(all_labels),
-        "macro_f1": macro_f1,
+        "macro_f1": round(macro_f1, 4),
+        "precision_macro": round(precision_macro, 4),
+        "recall_macro": round(recall_macro, 4),
         "mean_confidence": round(mean_confidence, 4),
         "low_confidence_count": low_confidence_count,
         "per_class_f1": {
@@ -256,7 +285,7 @@ def evaluate(
     }
 
     # ------------------------------------------------------------------
-    # Optional figure
+    # Optional figure + dashboard metrics export
     # ------------------------------------------------------------------
     if save_figure and figures_dir is not None:
         figures_dir.mkdir(parents=True, exist_ok=True)
@@ -270,8 +299,29 @@ def evaluate(
         plt.close(fig)
         log.info("Confusion matrix figure saved to %s", fig_path)
         result["figure_path"] = str(fig_path)
+        _write_dashboard_metrics(
+            result,
+            artifacts_dir=artifacts_dir or figures_dir.parent,
+            figures_dir=figures_dir,
+        )
 
     return result
+
+
+def _write_dashboard_metrics(
+    eval_result: dict,
+    *,
+    artifacts_dir: Path,
+    figures_dir: Path,
+) -> None:
+    """Write metrics.json in the format expected by the Streamlit dashboard."""
+    dashboard_metrics = format_dashboard_metrics(eval_result)
+    for metrics_dir in (artifacts_dir, figures_dir):
+        metrics_dir.mkdir(parents=True, exist_ok=True)
+        metrics_path = metrics_dir / "metrics.json"
+        with metrics_path.open("w", encoding="utf-8") as fh:
+            json.dump(dashboard_metrics, fh, indent=2)
+        log.info("Dashboard metrics.json saved to %s", metrics_path)
 
 
 # ---------------------------------------------------------------------------
@@ -306,6 +356,7 @@ def main() -> int:
         batch_size=batch_size,
         num_workers=num_workers,
         save_figure=args.save_figure,
+        artifacts_dir=path_map["artifacts_dir"],
         figures_dir=path_map["figures_dir"],
     )
 

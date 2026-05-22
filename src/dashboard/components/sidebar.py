@@ -22,7 +22,7 @@ _MATERIAL_ICONS: dict[str, str] = {
     "analytics": ":material/analytics:",
 }
 
-_DEFAULT_SCENE = "pinery-bushfire_00000000"
+_DEFAULT_SCENE = ""
 
 
 def _init_session_state() -> None:
@@ -39,6 +39,9 @@ def render_sidebar_extras() -> str:
     scene_ids = [s["scene_id"] for s in scenes]
     if st.session_state.selected_scene_id not in scene_ids and scene_ids:
         st.session_state.selected_scene_id = scene_ids[0]
+    if not scene_ids:
+        st.sidebar.warning("No scenes found. Generate a scene manifest under data/processed/.")
+        return ""
 
     _render_navigation(active)
     selected = _render_scene_selector(scene_ids)
@@ -72,10 +75,14 @@ def _render_scene_selector(scene_ids: list[str]) -> str:
         '<span class="ds-label-caps">Current Scene</span>',
         unsafe_allow_html=True,
     )
+    if not scene_ids:
+        return ""
+    current = st.session_state.selected_scene_id
+    index = scene_ids.index(current) if current in scene_ids else 0
     selected: str = st.sidebar.selectbox(
         "Current scene",
         scene_ids,
-        index=scene_ids.index(st.session_state.selected_scene_id),
+        index=index,
         label_visibility="collapsed",
         key="sidebar_scene_select",
     )

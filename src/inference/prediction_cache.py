@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from src.common.constants import DAMAGE_CLASSES
+from src.common.priority_score import compute_priority_score, compute_shares
 
 PREDICTION_FIELDS = (
     "scene_id",
@@ -185,15 +186,18 @@ def summarise_scene_predictions(
         total = len(scene_records)
         counts = Counter(record.predicted_label for record in scene_records)
         class_counts = {label: counts.get(label, 0) for label in DAMAGE_CLASSES}
-        destroyed_share = class_counts["destroyed"] / total
-        major_damage_share = class_counts["major_damage"] / total
-        damaged_count = total - class_counts["no_damage"]
-        damage_density = damaged_count / total
-        priority_score = 100 * (
-            destroyed_weight * destroyed_share
-            + major_damage_weight * major_damage_share
-            + damage_density_weight * damage_density
+        shares = compute_shares(class_counts, total)
+        priority_score = compute_priority_score(
+            shares["destroyed_share"],
+            shares["major_damage_share"],
+            shares["damage_density"],
+            destroyed_weight=destroyed_weight,
+            major_damage_weight=major_damage_weight,
+            damage_density_weight=damage_density_weight,
         )
+        destroyed_share = shares["destroyed_share"]
+        major_damage_share = shares["major_damage_share"]
+        damage_density = shares["damage_density"]
         review_flag_count = sum(record.needs_review for record in scene_records)
         mean_confidence = sum(record.confidence for record in scene_records) / total
 

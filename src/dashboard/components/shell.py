@@ -52,10 +52,10 @@ def render_footer(show_hitl: bool = False) -> None:
         f"{hitl}"
         f'<div class="ds-footer-bar">'
         f"<span>v1.0.0-mvp | DisasterSight Decision Support Prototype | Academic Use Only</span>"
-        f"<span>"
-        f'<a href="#">Privacy Policy</a>'
-        f'<a href="#">Ethical AI Framework</a>'
-        f'<a href="#">Terms of Service</a>'
+        f'<span class="ds-footer-links">'
+        f'<span class="ds-footer-link">Privacy Policy</span>'
+        f'<span class="ds-footer-link">Ethical AI Framework</span>'
+        f'<span class="ds-footer-link">Terms of Service</span>'
         f"</span></div>",
         unsafe_allow_html=True,
     )
