@@ -12,6 +12,7 @@ import json
 import os
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -808,7 +809,7 @@ class TestDashboardCaching(unittest.TestCase):
     def test_cached_loader_tokens_are_hashed_by_streamlit(self) -> None:
         from src.dashboard import data_loaders
 
-        cached_functions = [
+        cached_functions: list[Callable[..., Any]] = [
             data_loaders._load_scenes_cached,
             data_loaders._load_zone_summaries_cached,
             data_loaders._load_predictions_cached,
