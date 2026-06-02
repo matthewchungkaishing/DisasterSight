@@ -85,6 +85,24 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="How to address class imbalance (default from config.yaml).",
     )
+    parser.add_argument(
+        "--loss-function",
+        choices=["cross_entropy", "focal"],
+        default=None,
+        help="Classification loss to use (default from config.yaml).",
+    )
+    parser.add_argument(
+        "--focal-gamma",
+        type=float,
+        default=None,
+        help="Focusing strength for focal loss. Only used with focal loss.",
+    )
+    parser.add_argument(
+        "--label-smoothing",
+        type=float,
+        default=None,
+        help="Label smoothing passed to the classification loss.",
+    )
     parser.add_argument("--no-pretrained", action="store_true", help="Disable pretrained backbone.")
     parser.add_argument("--seed", type=int, default=None, help="Override random seed.")
     parser.add_argument(
@@ -98,6 +116,11 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="Class-aware cap for validation rows. Intended for CPU smoke runs on real xBD crops.",
+    )
+    parser.add_argument(
+        "--allow-low-class-counts",
+        action="store_true",
+        help="Allow training when one or more damage classes has too few samples. Smoke runs only.",
     )
     return parser.parse_args()
 
@@ -154,6 +177,53 @@ def _macro_f1(preds: list[int], labels: list[int]) -> float:
     return macro_scores(matrix)[2]
 
 
+class FocalLoss(nn.Module):
+    """Weighted multi-class focal loss for class-imbalanced crop classification."""
+
+    def __init__(
+        self,
+        *,
+        gamma: float = 2.0,
+        weight: torch.Tensor | None = None,
+        label_smoothing: float = 0.0,
+    ) -> None:
+        super().__init__()
+        self.gamma = gamma
+        self.register_buffer("weight", weight)
+        self.label_smoothing = label_smoothing
+
+    def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        ce_loss = nn.functional.cross_entropy(
+            logits,
+            labels,
+            weight=self.weight,
+            reduction="none",
+            label_smoothing=self.label_smoothing,
+        )
+        true_class_prob = torch.softmax(logits, dim=1).gather(1, labels.unsqueeze(1)).squeeze(1)
+        focal_factor = (1.0 - true_class_prob).clamp(min=0.0).pow(self.gamma)
+        return (focal_factor * ce_loss).mean()
+
+
+def build_loss(
+    *,
+    loss_function: str,
+    class_weights: torch.Tensor | None,
+    focal_gamma: float,
+    label_smoothing: float,
+) -> nn.Module:
+    """Construct the configured classification loss."""
+    if loss_function == "cross_entropy":
+        return nn.CrossEntropyLoss(weight=class_weights, label_smoothing=label_smoothing)
+    if loss_function == "focal":
+        return FocalLoss(
+            gamma=focal_gamma,
+            weight=class_weights,
+            label_smoothing=label_smoothing,
+        )
+    raise ValueError(f"Unsupported loss function: {loss_function}")
+
+
 def _log_metrics(
     phase: str,
     epoch: int,
@@ -182,6 +252,37 @@ def _log_metrics(
     for i in range(NUM_CLASSES):
         row[f"f1_{DAMAGE_CLASSES[i]}"] = float(per_class[i])
     return row
+
+
+def _class_count_guardrail(
+    train_counts: dict[str, int],
+    val_counts: dict[str, int],
+    *,
+    allow_low_class_counts: bool,
+    min_train_per_class: int = 50,
+    min_val_per_class: int = 5,
+) -> None:
+    """Fail fast when a manifest cannot support credible 4-class training."""
+    low_train = {
+        label: count for label, count in train_counts.items() if count < min_train_per_class
+    }
+    low_val = {label: count for label, count in val_counts.items() if count < min_val_per_class}
+    if not low_train and not low_val:
+        return
+
+    message = (
+        "Manifest class coverage is too low for credible 4-class training. "
+        f"Minimum train samples per class: {min_train_per_class}; "
+        f"minimum val samples per class: {min_val_per_class}. "
+        f"Low train counts: {low_train or 'none'}. "
+        f"Low val counts: {low_val or 'none'}. "
+        "Use a better-balanced manifest such as crop_manifest_focus.csv, or pass "
+        "--allow-low-class-counts only for a deliberate smoke run."
+    )
+    if allow_low_class_counts:
+        log.warning("%s", message)
+        return
+    raise ValueError(message)
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +323,17 @@ def train(args: argparse.Namespace) -> Path:
     strategy: str = args.class_weight_strategy or training_cfg.get(
         "class_weight_strategy", "loss_weight"
     )
+    loss_function: str = args.loss_function or training_cfg.get("loss_function", "cross_entropy")
+    focal_gamma: float = (
+        args.focal_gamma
+        if args.focal_gamma is not None
+        else float(training_cfg.get("focal_gamma", 2.0))
+    )
+    label_smoothing: float = (
+        args.label_smoothing
+        if args.label_smoothing is not None
+        else float(training_cfg.get("label_smoothing", 0.0))
+    )
     dropout: float = float(training_cfg.get("dropout", 0.3))
     pretrained: bool = not args.no_pretrained
 
@@ -260,21 +372,29 @@ def train(args: argparse.Namespace) -> Path:
         records=val_records,
     )
 
+    train_counts = class_distribution_summary(train_dataset.label_indices)
+    val_counts = class_distribution_summary(val_dataset.label_indices)
+
     log.info(
         "Train samples: %d  distribution: %s",
         len(train_dataset),
-        class_distribution_summary(train_dataset.label_indices),
+        train_counts,
     )
     log.info(
         "Val   samples: %d  distribution: %s",
         len(val_dataset),
-        class_distribution_summary(val_dataset.label_indices),
+        val_counts,
     )
 
     if len(train_dataset) == 0:
         raise ValueError("Train split is empty. Check manifest split assignments.")
     if len(val_dataset) == 0:
         raise ValueError("Val split is empty. Check manifest split assignments.")
+    _class_count_guardrail(
+        train_counts,
+        val_counts,
+        allow_low_class_counts=args.allow_low_class_counts,
+    )
 
     # ------------------------------------------------------------------
     # Class-imbalance handling
@@ -326,7 +446,12 @@ def train(args: argparse.Namespace) -> Path:
 
     model = PairedCropClassifier(pretrained=pretrained, dropout=dropout).to(device)
     weight_tensor = class_weights.to(device) if class_weights is not None else None
-    criterion = nn.CrossEntropyLoss(weight=weight_tensor)
+    criterion = build_loss(
+        loss_function=loss_function,
+        class_weights=weight_tensor,
+        focal_gamma=focal_gamma,
+        label_smoothing=label_smoothing,
+    )
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
@@ -346,6 +471,9 @@ def train(args: argparse.Namespace) -> Path:
         "learning_rate": learning_rate,
         "image_size": image_size,
         "class_weight_strategy": strategy,
+        "loss_function": loss_function,
+        "focal_gamma": focal_gamma,
+        "label_smoothing": label_smoothing,
         "dropout": dropout,
         "pretrained": pretrained,
     }

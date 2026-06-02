@@ -18,7 +18,7 @@ paths:
 
 dataset:
   name: xbd
-  use_small_subset: true
+  use_small_subset: false
   # Small subsets are selected by whole disaster events to avoid train/val/test leakage.
   small_subset_max_scenes: 300
   small_subset_disaster_names:
@@ -61,6 +61,12 @@ training:
   # sampler:     WeightedRandomSampler so each class appears equally per epoch
   # both:        apply both (strongest correction, can cause overfitting on small sets)
   class_weight_strategy: loss_weight
+  # Experimental option for future controlled runs. In the 2026-06-02 bounded
+  # focus-manifest check, focal+sampler underperformed the promoted checkpoint.
+  # Options: cross_entropy | focal
+  loss_function: cross_entropy
+  focal_gamma: 2.0
+  label_smoothing: 0.0
   backbone: resnet18
   dropout: 0.3
 

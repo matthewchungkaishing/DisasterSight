@@ -62,8 +62,8 @@ dashboard: ## Launch the Streamlit dashboard
 # ---------------------------------------------------------------------------
 
 pipeline: ## Run data pipeline: manifest -> crops -> validate -> QA
-	$(PYTHON) -m src.data.build_scene_manifest
-	$(PYTHON) -m src.data.build_crop_manifest
+	$(PYTHON) -m src.data.build_scene_manifest --all-scenes
+	$(PYTHON) -m src.data.build_crop_manifest --clean --max-per-class 10000
 	$(PYTHON) -m src.data.validate_crop_manifest
 	$(PYTHON) -m src.data.build_crop_qa_preview
 	@echo "Data pipeline complete. Run 'make train' then 'make evaluate CHECKPOINT=...' and 'make predictions CHECKPOINT=...'."

@@ -15,6 +15,7 @@ Outputs:
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import logging
 from pathlib import Path
@@ -27,7 +28,9 @@ from src.common.classification_metrics import (
     classification_report_text,
     confusion_matrix_counts,
     macro_scores,
+    metrics_summary,
     per_class_precision_recall_f1,
+    remap_confusion_matrix,
 )
 from src.common.constants import DAMAGE_CLASSES
 from src.common.metrics_format import format_dashboard_metrics
@@ -208,16 +211,21 @@ def evaluate(
     all_preds: list[int] = []
     all_labels: list[int] = []
     all_confidences: list[float] = []
+    all_record_indices: list[int] = []
 
     with torch.no_grad():
+        seen = 0
         for inputs, labels in loader:
             inputs = inputs.to(device, non_blocking=True)
             logits = model(inputs)
             probs = torch.softmax(logits, dim=-1)
             max_probs, preds = probs.max(dim=-1)
+            batch_size_actual = labels.size(0)
             all_preds.extend(preds.cpu().tolist())
             all_labels.extend(labels.tolist())
             all_confidences.extend(max_probs.cpu().tolist())
+            all_record_indices.extend(range(seen, seen + batch_size_actual))
+            seen += batch_size_actual
 
     # ------------------------------------------------------------------
     # Metrics
@@ -271,10 +279,11 @@ def evaluate(
         },
         "checkpoint": str(checkpoint_path),
         "training_config": saved_config,
+        "rollup_metrics": _build_rollup_metrics(all_labels, all_preds),
     }
 
     # ------------------------------------------------------------------
-    # Optional figure + dashboard metrics export
+    # Optional figure + failure cases + dashboard metrics export
     # ------------------------------------------------------------------
     if save_figure and figures_dir is not None:
         figures_dir.mkdir(parents=True, exist_ok=True)
@@ -288,7 +297,110 @@ def evaluate(
         log.info("Confusion matrix figure saved to %s", fig_path)
         result["figure_path"] = str(fig_path)
 
+    if figures_dir is not None:
+        failures_path = figures_dir / f"failure_cases_{split}.csv"
+        _write_failure_cases(
+            failures_path,
+            records=records,
+            record_indices=all_record_indices,
+            labels=all_labels,
+            preds=all_preds,
+            confidences=all_confidences,
+            limit=100,
+        )
+        result["failure_cases_path"] = str(failures_path)
+        log.info("Failure-case CSV saved to %s", failures_path)
+
     return result
+
+
+def _build_rollup_metrics(labels: list[int], preds: list[int]) -> dict[str, dict[str, object]]:
+    """Return coarser triage metrics without changing the primary 4-class task."""
+    three_class_names = ["no_damage", "damaged", "destroyed"]
+    three_class_cm = remap_confusion_matrix(
+        labels,
+        preds,
+        class_mapping={
+            0: 0,  # no_damage
+            1: 1,  # minor_damage -> damaged
+            2: 1,  # major_damage -> damaged
+            3: 2,  # destroyed
+        },
+        num_classes=len(three_class_names),
+    )
+
+    binary_names = ["no_low_damage", "significant_damage"]
+    binary_cm = remap_confusion_matrix(
+        labels,
+        preds,
+        class_mapping={
+            0: 0,  # no_damage
+            1: 0,  # minor_damage
+            2: 1,  # major_damage
+            3: 1,  # destroyed
+        },
+        num_classes=len(binary_names),
+    )
+
+    return {
+        "three_class": metrics_summary(three_class_cm, three_class_names),
+        "binary_triage": metrics_summary(binary_cm, binary_names),
+    }
+
+
+def _write_failure_cases(
+    path: Path,
+    *,
+    records: list[dict[str, str]],
+    record_indices: list[int],
+    labels: list[int],
+    preds: list[int],
+    confidences: list[float],
+    limit: int,
+) -> None:
+    """Write the highest-confidence mistakes for human error review."""
+    fieldnames = [
+        "scene_id",
+        "building_id",
+        "true_label",
+        "predicted_label",
+        "confidence",
+        "disaster_name",
+        "disaster_type",
+        "pre_crop_path",
+        "post_crop_path",
+    ]
+    mistakes: list[dict[str, str | float]] = []
+    for record_idx, true_idx, pred_idx, confidence in zip(
+        record_indices,
+        labels,
+        preds,
+        confidences,
+        strict=True,
+    ):
+        if true_idx == pred_idx:
+            continue
+        record = records[record_idx]
+        mistakes.append(
+            {
+                "scene_id": record.get("scene_id", ""),
+                "building_id": record.get("building_id", ""),
+                "true_label": DAMAGE_CLASSES[true_idx],
+                "predicted_label": DAMAGE_CLASSES[pred_idx],
+                "confidence": round(float(confidence), 6),
+                "disaster_name": record.get("disaster_name", ""),
+                "disaster_type": record.get("disaster_type", ""),
+                "pre_crop_path": record.get("pre_crop_path", ""),
+                "post_crop_path": record.get("post_crop_path", ""),
+            }
+        )
+
+    mistakes.sort(key=lambda row: float(row["confidence"]), reverse=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(mistakes[:limit])
 
 
 def _write_dashboard_metrics(

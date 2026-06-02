@@ -141,6 +141,117 @@ class TestClassDistribution(unittest.TestCase):
         self.assertEqual(summary["minor_damage"], 1)
 
 
+class TestClassificationRollups(unittest.TestCase):
+    def test_remap_confusion_matrix_merges_damage_classes(self) -> None:
+        from src.common.classification_metrics import macro_scores, remap_confusion_matrix
+
+        labels = [0, 1, 2, 3]
+        preds = [0, 2, 1, 3]
+        matrix = remap_confusion_matrix(
+            labels,
+            preds,
+            class_mapping={0: 0, 1: 1, 2: 1, 3: 2},
+            num_classes=3,
+        )
+
+        self.assertEqual(matrix, [[1, 0, 0], [0, 2, 0], [0, 0, 1]])
+        self.assertAlmostEqual(macro_scores(matrix)[2], 1.0)
+
+    def test_evaluation_rollups_include_binary_triage(self) -> None:
+        from src.models.evaluate import _build_rollup_metrics
+
+        rollups = _build_rollup_metrics(
+            labels=[0, 1, 2, 3],
+            preds=[0, 2, 1, 3],
+        )
+
+        self.assertIn("three_class", rollups)
+        self.assertIn("binary_triage", rollups)
+        self.assertEqual(rollups["three_class"]["macro_f1"], 1.0)
+        self.assertEqual(
+            rollups["binary_triage"]["classes"],
+            ["no_low_damage", "significant_damage"],
+        )
+
+
+class TestTrainingGuardrails(unittest.TestCase):
+    def test_low_class_counts_raise_by_default(self) -> None:
+        from src.models.train import _class_count_guardrail
+
+        with self.assertRaises(ValueError):
+            _class_count_guardrail(
+                {
+                    "no_damage": 1000,
+                    "minor_damage": 108,
+                    "major_damage": 18,
+                    "destroyed": 2,
+                },
+                {
+                    "no_damage": 100,
+                    "minor_damage": 9,
+                    "major_damage": 9,
+                    "destroyed": 23,
+                },
+                allow_low_class_counts=False,
+            )
+
+    def test_low_class_counts_can_be_allowed_for_smoke_runs(self) -> None:
+        from src.models.train import _class_count_guardrail
+
+        _class_count_guardrail(
+            {
+                "no_damage": 1000,
+                "minor_damage": 108,
+                "major_damage": 18,
+                "destroyed": 2,
+            },
+            {
+                "no_damage": 100,
+                "minor_damage": 9,
+                "major_damage": 9,
+                "destroyed": 23,
+            },
+            allow_low_class_counts=True,
+        )
+
+
+class TestTrainingLosses(unittest.TestCase):
+    def test_focal_loss_returns_scalar(self) -> None:
+        from src.models.train import FocalLoss
+
+        loss = FocalLoss(gamma=2.0, weight=torch.ones(4), label_smoothing=0.05)
+        logits = torch.tensor([[3.0, 0.2, -0.1, -1.0], [0.1, 2.0, 0.3, -0.5]])
+        labels = torch.tensor([0, 1])
+
+        value = loss(logits, labels)
+
+        self.assertEqual(value.ndim, 0)
+        self.assertGreater(value.item(), 0.0)
+
+    def test_build_loss_supports_configured_options(self) -> None:
+        from src.models.train import FocalLoss, build_loss
+
+        weights = torch.ones(4)
+        self.assertIsInstance(
+            build_loss(
+                loss_function="cross_entropy",
+                class_weights=weights,
+                focal_gamma=2.0,
+                label_smoothing=0.0,
+            ),
+            torch.nn.CrossEntropyLoss,
+        )
+        self.assertIsInstance(
+            build_loss(
+                loss_function="focal",
+                class_weights=weights,
+                focal_gamma=2.0,
+                label_smoothing=0.05,
+            ),
+            FocalLoss,
+        )
+
+
 class TestStratifiedSampling(unittest.TestCase):
     def test_sample_keeps_available_classes(self) -> None:
         records = (

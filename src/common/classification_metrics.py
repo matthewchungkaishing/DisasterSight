@@ -48,6 +48,45 @@ def macro_scores(matrix: list[list[int]]) -> tuple[float, float, float]:
     return _mean(precision), _mean(recall), _mean(f1)
 
 
+def remap_confusion_matrix(
+    labels: list[int],
+    predictions: list[int],
+    *,
+    class_mapping: dict[int, int],
+    num_classes: int,
+) -> list[list[int]]:
+    """Return a confusion matrix after mapping source classes to coarser classes."""
+    mapped_labels = [class_mapping[label] for label in labels if label in class_mapping]
+    mapped_predictions = [
+        class_mapping[prediction] for prediction in predictions if prediction in class_mapping
+    ]
+    return confusion_matrix_counts(
+        mapped_labels,
+        mapped_predictions,
+        num_classes=num_classes,
+    )
+
+
+def metrics_summary(matrix: list[list[int]], class_names: list[str]) -> dict[str, object]:
+    """Return serializable macro and per-class metrics for a confusion matrix."""
+    precision_macro, recall_macro, macro_f1 = macro_scores(matrix)
+    _precision, _recall, per_class_f1 = per_class_precision_recall_f1(matrix)
+    return {
+        "classes": class_names,
+        "macro_f1": round(macro_f1, 4),
+        "precision_macro": round(precision_macro, 4),
+        "recall_macro": round(recall_macro, 4),
+        "per_class_f1": {
+            class_names[index]: round(float(per_class_f1[index]), 4)
+            for index in range(len(class_names))
+        },
+        "confusion_matrix": {
+            "classes": class_names,
+            "matrix": matrix,
+        },
+    }
+
+
 def classification_report_text(
     matrix: list[list[int]],
     class_names: list[str],

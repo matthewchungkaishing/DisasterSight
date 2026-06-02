@@ -140,6 +140,7 @@ def extract_crops_for_scene(
     padding: int = 12,
     min_area_pixels: float = 32.0,
     save_masked: bool = False,
+    remaining_by_class: dict[str, int] | None = None,
 ) -> list[CropRecord]:
     """Extract paired pre/post building crops for one complete xBD scene record."""
     scene_id = str(record["scene_id"])
@@ -166,6 +167,10 @@ def extract_crops_for_scene(
         for annotation in annotations:
             if annotation.label not in DAMAGE_CLASSES or annotation.area_pixels < min_area_pixels:
                 continue
+            if remaining_by_class is not None:
+                remaining = remaining_by_class.get(annotation.label, 0)
+                if remaining <= 0:
+                    continue
 
             bbox_xyxy = pad_and_clamp_bbox(
                 annotation.bbox_xyxy,
@@ -181,20 +186,24 @@ def extract_crops_for_scene(
             pre_crop_path = scene_output_dir / f"{safe_building_id}_pre.png"
             post_crop_path = scene_output_dir / f"{safe_building_id}_post.png"
 
-            extract_crop(pre_image, bbox_xyxy, target_size).save(pre_crop_path)
-            extract_crop(post_image, bbox_xyxy, target_size).save(post_crop_path)
+            if not pre_crop_path.exists():
+                extract_crop(pre_image, bbox_xyxy, target_size).save(pre_crop_path)
+            if not post_crop_path.exists():
+                extract_crop(post_image, bbox_xyxy, target_size).save(post_crop_path)
 
             pre_masked_path = None
             post_masked_path = None
             if save_masked:
                 pre_masked_path = scene_output_dir / f"{safe_building_id}_pre_masked.png"
                 post_masked_path = scene_output_dir / f"{safe_building_id}_post_masked.png"
-                create_masked_crop(pre_image, annotation, bbox_xyxy, target_size).save(
-                    pre_masked_path
-                )
-                create_masked_crop(post_image, annotation, bbox_xyxy, target_size).save(
-                    post_masked_path
-                )
+                if not pre_masked_path.exists():
+                    create_masked_crop(pre_image, annotation, bbox_xyxy, target_size).save(
+                        pre_masked_path
+                    )
+                if not post_masked_path.exists():
+                    create_masked_crop(post_image, annotation, bbox_xyxy, target_size).save(
+                        post_masked_path
+                    )
 
             crop_records.append(
                 CropRecord(
@@ -221,6 +230,8 @@ def extract_crops_for_scene(
                     ),
                 )
             )
+            if remaining_by_class is not None:
+                remaining_by_class[annotation.label] -= 1
 
     return crop_records
 
@@ -233,10 +244,20 @@ def extract_crops_for_manifest(
     padding: int = 12,
     min_area_pixels: float = 32.0,
     save_masked: bool = False,
+    max_per_class: int | None = None,
 ) -> list[CropRecord]:
     """Extract crops for all scenes in a scene manifest."""
     crop_records: list[CropRecord] = []
+    remaining_by_class = (
+        {damage_class: max_per_class for damage_class in DAMAGE_CLASSES}
+        if max_per_class is not None
+        else None
+    )
     for row in scene_rows:
+        if remaining_by_class is not None and all(
+            remaining <= 0 for remaining in remaining_by_class.values()
+        ):
+            break
         crop_records.extend(
             extract_crops_for_scene(
                 row,
@@ -245,6 +266,7 @@ def extract_crops_for_manifest(
                 padding=padding,
                 min_area_pixels=min_area_pixels,
                 save_masked=save_masked,
+                remaining_by_class=remaining_by_class,
             )
         )
     return crop_records

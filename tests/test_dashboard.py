@@ -739,6 +739,12 @@ class TestArtifactResolverCSV(unittest.TestCase):
                 "major_damage": 0.8,
                 "destroyed": 0.85,
             },
+            "rollup_metrics": {
+                "binary_triage": {
+                    "macro_f1": 0.88,
+                    "classes": ["no_low_damage", "significant_damage"],
+                }
+            },
             "confusion_matrix": {
                 "classes": ["no_damage", "minor_damage", "major_damage", "destroyed"],
                 "matrix": [
@@ -754,6 +760,7 @@ class TestArtifactResolverCSV(unittest.TestCase):
         self.assertAlmostEqual(result["macro_f1"], 0.812)
         self.assertAlmostEqual(result["precision_macro"], 0.835)
         self.assertEqual(result["validation_patches"], 1000)
+        self.assertEqual(result["rollup_metrics"]["binary_triage"]["macro_f1"], 0.88)
         self.assertEqual(len(result["confusion_matrix"]), 4)
         # Row sums of normalized matrix should be ~1.0
         for row in result["confusion_matrix"]:

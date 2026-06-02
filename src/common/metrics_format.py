@@ -51,5 +51,6 @@ def format_dashboard_metrics(raw: dict[str, Any]) -> dict[str, Any]:
         "confusion_labels": labels,
         "validation_patches": int(raw.get("num_samples", raw.get("validation_patches", 0))),
         "per_class_f1": raw.get("per_class_f1", {}),
+        "rollup_metrics": raw.get("rollup_metrics", {}),
         "mean_confidence": float(raw.get("mean_confidence", 0.0)),
     }

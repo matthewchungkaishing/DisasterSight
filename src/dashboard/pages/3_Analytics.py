@@ -58,6 +58,30 @@ metrics_html = (
 )
 st.markdown(f'<div class="ds-metrics-grid">{metrics_html}</div>', unsafe_allow_html=True)
 
+rollups = metrics.get("rollup_metrics", {})
+if rollups:
+    triage = rollups.get("binary_triage", {})
+    three_class = rollups.get("three_class", {})
+    st.markdown(
+        """
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+             gap:0.75rem;margin:0.85rem 0 1rem">
+          <div class="ds-metric-card">
+            <span class="ds-metric-label">3-Class Rollup F1</span>
+            <div class="ds-metric-value">{three_class_f1:.3f}</div>
+          </div>
+          <div class="ds-metric-card">
+            <span class="ds-metric-label">Significant-Damage Triage F1</span>
+            <div class="ds-metric-value">{binary_f1:.3f}</div>
+          </div>
+        </div>
+        """.format(
+            three_class_f1=float(three_class.get("macro_f1", 0.0)),
+            binary_f1=float(triage.get("macro_f1", 0.0)),
+        ),
+        unsafe_allow_html=True,
+    )
+
 left, right = st.columns([1.45, 1])
 with left, st.container(border=True):
     hdr_l, hdr_r = st.columns([3, 1])
